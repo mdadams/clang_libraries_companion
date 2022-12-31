@@ -1,0 +1,83 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+matcher_program="$build_dir/cyclomatic_complexity_matcher"
+visitor_program="$build_dir/cyclomatic_complexity_visitor"
+
+programs=()
+
+while getopts MV option; do
+	case "$option" in
+	V)
+		programs+=("$visitor_program");;
+	M)
+		programs+=("$matcher_program");;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files=()
+	source_files+=("$data_dir"/test_1.cpp)
+	source_files+=("$data_dir"/test_2.cpp)
+	source_files+=("$data_dir"/test_3.cpp)
+fi
+
+if [ "${#programs[@]}" -eq 0 ]; then
+	programs=()
+	programs+=("$visitor_program")
+	programs+=("$matcher_program")
+fi
+
+if [ ${#source_files[@]} -eq 0 ]; then
+	for file in test_1.cpp test_2.cpp; do
+		source_files+=("$self_dir/$file")
+	done
+fi
+
+threshold=
+
+for program in "${programs[@]}"; do
+	python -c 'print("*" * 80)'
+	echo "PROGRAM: $program"
+	echo "SOURCE FILES: ${source_files[*]}"
+	options=()
+	options+=(-p "$build_dir")
+	if [ -n "$threshold" ]; then
+		options+=(-t "$threshold")
+	fi
+	run_command \
+	  "$run_clang_tool" "$program" "${options[@]}" "${source_files[@]}" || \
+	  panic "tool failed"
+	python -c 'print("*" * 80)'
+done

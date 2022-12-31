@@ -1,0 +1,20 @@
+[
+  {
+    "arguments" : [
+       "/usr/bin/clang++",
+       "-Irelative",
+       "-DGREET=Hello, World!\\n",
+       "-c",
+       "-o",
+       "file.o",
+       "file.cpp"
+    ],
+    "directory" : "/home/user/llvm/build",
+    "file" : "file.cpp"
+  },
+  {
+    "command" : "/usr/bin/clang++ -Irelative -DGREET=\"Hello, World!\\\\n\" -c -o file.o file.cpp",
+    "directory" : "/home/user/llvm/build",
+    "file" : "file2.cpp"
+  }
+]

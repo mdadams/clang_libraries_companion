@@ -1,0 +1,26 @@
+name: ci
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-20.04]
+        compiler: [ {cc: gcc, cxx: g++}, {cc: clang, cxx: clang++} ]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v3
+    ############################################################
+    - name: prebuild
+      shell: bash
+      run: .build/github/prebuild -v -s ${{ matrix.os }}
+    ############################################################
+    - name: testing
+      env:
+        CC: ${{ matrix.compiler.cc }}
+        CXX: ${{ matrix.compiler.cxx }}
+      shell: bash
+      run: .build/github/build -v -s ${{ matrix.os }}
+    ############################################################

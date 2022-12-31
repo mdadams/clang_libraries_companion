@@ -1,0 +1,65 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $@"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+usage()
+{
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+program="$build_dir/app"
+
+source_files=()
+
+while getopts i: option; do
+	case "$option" in
+	i)
+		source_files+=("$OPTARG");;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir/hello.cpp")
+	source_files+=("$data_dir/simple_1.cpp")
+	source_files+=("$data_dir/macros_1.cpp")
+	source_files+=("$data_dir/example_1.cpp")
+	source_files+=("$data_dir/example_2.cpp")
+fi
+
+for source_file in "${source_files[@]}"; do
+	python -c 'print("*" * 80)'
+	run_command \
+	  "$run_clang_tool" "$program" -p "$build_dir" "$source_file" \
+	  -extra-arg=-std=c++20 || \
+	  panic "unexpected tool failure"
+	python -c 'print("*" * 80)'
+done

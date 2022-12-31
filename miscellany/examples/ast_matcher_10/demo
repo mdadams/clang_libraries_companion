@@ -1,0 +1,145 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $@"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+run_command_limit_stdout()
+{
+	echo "RUNNING: $*"
+	# NOTE: Use sed (not head), as head will result in broken pipe.
+	# NOTE: This will never finish if the output stream never ends.
+	"$@" | sed -n "1,100p"
+	local status="${PIPESTATUS[0]}"
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+
+	-i \$source_file
+	-m \$matcher_id
+	EOF
+	exit 2
+}
+
+program="$build_dir/matcher"
+decl_matcher=
+stmt_matcher=
+source_files=()
+ignore_implicit=0
+dump_ast=0
+cxx_std=
+verbose=0
+parse_comments=0
+
+while getopts Cc:vi:s:d:IA option; do
+	case "$option" in
+	C)
+		parse_comments=1;;
+	v)
+		verbose=$((verbose + 1));;
+	I)
+		ignore_implicit=1;;
+	i)
+		source_files+=("$OPTARG");;
+	s)
+		stmt_matcher="$OPTARG";;
+	d)
+		decl_matcher="$OPTARG";;
+	A)
+		dump_ast="1";;
+	c)
+		cxx_std="$OPTARG";;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+default_source_files=(
+	"$source_dir"/data/empty.cpp
+	"$source_dir"/data/standard_headers.cpp
+	"$source_dir"/data/example_1.cpp
+	"$source_dir"/data/example_2.cpp
+	"$source_dir"/data/example_3.cpp
+	"$source_dir"/data/example_4.cpp
+	"$source_dir"/data/example_5.cpp
+	"$source_dir"/data/example_6.cpp
+	"$source_dir"/data/example_7.cpp
+	"$source_dir"/data/example_10.cpp
+	"$source_dir"/data/example_11.cpp
+	"$source_dir"/data/example_12.cpp
+	"$source_dir"/data/example_13.cpp
+	"$source_dir"/data/example_15.cpp
+	"$source_dir"/data/example_16.cpp
+	"$source_dir"/data/example_17.cpp
+	"$source_dir"/data/example_18.cpp
+	"$source_dir"/data/example_19.cpp
+)
+
+source_files+=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files=("${default_source_files[@]}")
+fi
+
+if [ -z "$decl_matcher" -a -z "$stmt_matcher" ]; then
+	decl_matcher=0
+fi
+
+options+=(-p "$build_dir")
+if [ -n "$decl_matcher" ]; then
+	options+=(-d "$decl_matcher")
+fi
+if [ -n "$stmt_matcher" ]; then
+	options+=(-s "$stmt_matcher")
+fi
+if [ "$ignore_implicit" -ne 0 ]; then
+	options+=(-ignore-implicit)
+fi
+if [ "$dump_ast" -ne 0 ]; then
+	options+=(--dump-ast)
+fi
+if [ -n "$cxx_std" ]; then
+	options+=(-extra-arg=-std="$cxx_std")
+fi
+if [ "$parse_comments" -ne 0 ]; then
+	options+=(-extra-arg="-fparse-all-comments")
+fi
+for ((i = 0; i < verbose; ++i)); do
+	options+=(-v)
+done
+
+for source_file in "${source_files[@]}"; do
+	echo "SOURCE FILE: $source_file"
+	run_command_limit_stdout \
+	  "$run_clang_tool" "$program" "${options[@]}" "$source_file" || \
+	  panic "tool failed"
+done

@@ -1,0 +1,35 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic() {
+	echo "ERROR"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+program="$build_dir/program"
+
+# NOTE: This program should not be invoked via the run_clang_tool script, as
+# this program does not use the standard Clang-libtooling command-line
+# processing.
+run_command "$program" "int x, y, z;" || \
+  panic "tool failed"

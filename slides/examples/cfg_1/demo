@@ -1,0 +1,60 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+run_command_limit_stdout()
+{
+	echo "RUNNING: $*"
+	# NOTE: Use sed (not head), as head will result in broken pipe.
+	# NOTE: This will never finish if the output stream never ends.
+	"$@" | sed -n "1,100p"
+	local status="${PIPESTATUS[0]}"
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+program="$build_dir/cfg"
+
+source_files=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir/example_1.cpp")
+	source_files+=("$data_dir/example_2.cpp")
+	source_files+=("$data_dir/example_3.cpp")
+	# NOTE: The following source file may generate too much output for
+	# the GitHub CI workflow.
+	source_files+=("$data_dir/example_4.cpp")
+fi
+
+python -c 'print("*" * 80)'
+echo "PROGRAM: $program"
+echo "SOURCE FILES: ${source_files[*]}"
+run_command_limit_stdout \
+  "$run_clang_tool" "$program" -p "$build_dir" "${source_files[@]}" || \
+  panic "tool failed"
+python -c 'print("*" * 80)'

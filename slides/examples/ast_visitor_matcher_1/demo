@@ -1,0 +1,131 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $@"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+get_source_files()
+{
+	local -n output_var="$1"
+	local index="$2"
+	shift 2
+	local source_files=("$@")
+	if [ "$index" -ge 0 ]; then
+		if [ "$index" -ge ${#source_files[@]} ]; then
+			return 2
+		fi
+		output_var=("${source_files[index]}")
+	else
+		output_var=("${source_files[@]}")
+	fi
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+usage()
+{
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+visitor0_program="$build_dir/visitor0"
+visitor1_program="$build_dir/visitor1"
+matcher_program="$build_dir/matcher"
+
+source_files=()
+programs=()
+process_multiple=0
+
+while getopts MVWi:m option; do
+	case "$option" in
+	i)
+		source_files+=("$OPTARG");;
+	m)
+		process_multiple=1;;
+	M)
+		programs+=("$matcher_program");;
+	V)
+		programs+=("$visitor1_program");;
+	W)
+		programs+=("$visitor0_program");;
+	*)
+		usage "invalid option $option";;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir/example_1.cpp")
+	source_files+=("$data_dir/example_2.cpp")
+	source_files+=("$data_dir/example_3.cpp")
+	source_files+=("$data_dir/example_4.cpp")
+fi
+if [ "${#programs[@]}" -eq 0 ]; then
+	programs=(
+		"$visitor0_program"
+		"$visitor1_program"
+		"$matcher_program"
+	)
+fi
+
+source_file_no=
+while true; do
+
+	if [ -z "$source_file_no" ]; then
+		if [ "$process_multiple" -ne 0 ]; then
+			source_file_no=-1
+		else
+			source_file_no=0
+		fi
+	else
+		if [ "$process_multiple" -ne 0 ]; then
+			break
+		else
+			source_file_no=$((source_file_no + 1))
+		fi
+	fi
+	get_source_files in_files "$source_file_no" \
+	  "${source_files[@]}" || in_files=()
+	if [ "${#in_files[@]}" -eq 0 ]; then
+		break
+	fi
+
+	for program in "${programs[@]}"; do
+
+		python -c 'print("*" * 80)'
+
+		args=()
+		args+=(-p "$build_dir")
+		args+=(-extra-arg=-std=c++20)
+		args+=("${in_files[@]}")
+		run_command "$run_clang_tool" "$program" "${args[@]}" || \
+		  panic "unexpected tool failure"
+
+		python -c 'print("*" * 80)'
+
+	done
+
+done

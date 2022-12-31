@@ -1,0 +1,43 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $@"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+program="$build_dir/app"
+
+program_options=()
+program_options+=(-p "$build_dir")
+
+source_files=()
+source_files+=("$data_dir/hello.cpp")
+source_files+=("$data_dir/simple_1.cpp")
+
+python -c 'print("*" * 80)'
+run_command "$run_clang_tool" "$program" "${program_options[@]}" \
+  "${source_files[@]}" || \
+  panic "unexpected tool failure"
+python -c 'print("*" * 80)'

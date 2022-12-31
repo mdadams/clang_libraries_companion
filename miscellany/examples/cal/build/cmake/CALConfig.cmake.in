@@ -1,0 +1,15 @@
+#set(CAL_VERSION @PACKAGE_VERSION@)
+
+@PACKAGE_INIT@
+
+# Note: The following assumes only one include directory, one library
+# directory, and one library.
+set_and_check(CAL_INCLUDE_DIRS
+  "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_INCLUDEDIR@")
+set_and_check(CAL_LIBRARY_DIRS
+  "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_LIBDIR@")
+set_and_check(CAL_SYSCONFIG_DIR
+  "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_SYSCONF_DIR@")
+#find_library(CAL_LIBRARIES CAL HINTS ${CAL_LIBRARY_DIRS})
+
+#check_required_components(CAL)

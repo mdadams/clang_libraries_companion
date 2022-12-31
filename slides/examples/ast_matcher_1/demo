@@ -1,0 +1,54 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $@"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+program="$build_dir/matcher"
+
+enable_special_test=1
+source_files=()
+source_files+=("$data_dir"/example_*.cpp)
+
+program_options=()
+program_options+=(-p "$build_dir")
+
+if [ "$enable_special_test" -ne 0 ]; then
+	for func in foo bar; do
+		source_file="$data_dir/example_1.cpp"
+		echo "TEST: $source_file"
+		run_command "$run_clang_tool" "$program" "${program_options[@]}" \
+		  -f foo "$source_file" || \
+		  panic "program failed"
+	done
+fi
+
+for source_file in "${source_files[@]}"; do
+	echo "TEST: $source_file"
+	run_command "$run_clang_tool" "$program" "${program_options[@]}" \
+	  -f foo "$source_file" || \
+	  panic "program failed"
+done

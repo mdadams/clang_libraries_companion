@@ -1,0 +1,68 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+demo=adjuster
+if [ $# -ge 1 ]; then
+	demo="$1"
+	shift 1
+fi
+options=("$@")
+
+case "$demo" in
+
+json)
+	run_command \
+	  "$build_dir/json_database" \
+	  "$source_dir/data/compile_commands.json" \
+	  "${options[@]}" || \
+	  panic "tool failed"
+	;;
+
+fixed)
+	run_command \
+	  "$build_dir/fixed_database" \
+	  "$source_dir/data/fixed_compilation_database.txt" \
+	  hello.cpp \
+	  goodbye.cpp \
+	  "${options[@]}" || \
+	  panic "tool failed"
+	;;
+
+adjuster)
+	run_command \
+	  "$build_dir/arg_adjuster" \
+	  -j "$source_dir/compile_commands.json" \
+	  -f "$source_dir/data/fixed_compilation_database.txt" \
+	  -a 0 \
+	  "${options[@]}" \
+	  hello.cpp || \
+	  panic "tool failed"
+	;;
+
+esac

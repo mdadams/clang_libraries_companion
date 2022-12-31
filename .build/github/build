@@ -1,0 +1,110 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+list_files()
+{
+    find "$1" -printf "%M %u %P\n" | sort
+}
+
+################################################################################
+
+self_program="$(realpath "$0")" || \
+  panic "realpath failed"
+self_dir="$(dirname "$self_program")" || \
+  panic "dirname failed"
+
+top_dir="$self_dir/../.."
+
+verbose=0
+matrix_os=
+
+while getopts vs: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	s)
+		matrix_os="$OPTARG";;
+	*)
+		usage "invalid option $option"
+		break
+		;;
+	esac
+done
+shift $((OPTIND - 1))
+
+case "$matrix_os" in
+ubuntu-*)
+	export CMAKE_PREFIX_PATH="/usr/lib/llvm-15/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
+	export LD_LIBRARY_PATH="/usr/lib/llvm-15/lib:$LD_LIBRARY_PATH"
+	export CL_CLANG_INCLUDE_DIR=/usr/include/clang/15.0.6/include
+	export PATH="/usr/lib/llvm-15/bin:$PATH"
+	case "$CC" in
+	*clang*)
+		export CC="clang"
+		export CXX="clang++"
+		;;
+	*gcc*)
+		case "$matrix_os" in
+		*-20.04)
+			export CC="gcc-10"
+			export CXX="g++-10"
+			;;
+		esac
+		;;
+	esac
+	if [ ! -d "$CL_CLANG_INCLUDE_DIR" ]; then
+		panic "Clang include directory does not exist"
+	fi
+	;;
+esac
+
+if [ "$verbose" -ge 1 ]; then
+	cat <<- EOF
+	============================================================
+	CC: $CC
+	============================================================
+	CXX: $CXX
+	============================================================
+	PATH: $PATH
+	============================================================
+	LD_LIBRARY_PATH: $LD_LIBRARY_PATH
+	============================================================
+	CMAKE_PREFIX_PATH: $CMAKE_PREFIX_PATH
+	============================================================
+	CL_CLANG_INCLUDE_DIR: $CL_CLANG_INCLUDE_DIR
+	============================================================
+	Clang version:
+	$(clang++ --version)
+	$(clang --version)
+	============================================================
+	GCC version:
+	$(g++ --version)
+	$(gcc --version)
+	============================================================
+	Clang default version of C++ standard:
+	$(g++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
+	============================================================
+	GCC default version of C++ standard:
+	$(clang++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
+	============================================================
+	EOF
+fi
+
+"$top_dir/build" \
+  --verbose \
+  --clean \
+  --build \
+  --demo \
+  --verbose-makefile \
+  --fmt \
+  --debug \
+  --asan \
+  --ubsan \
+  || panic "build failed"

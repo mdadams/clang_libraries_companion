@@ -1,0 +1,126 @@
+#! /usr/bin/env bash
+
+################################################################################
+# Functions
+################################################################################
+
+eecho()
+{
+	echo "$@" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+usage()
+{
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+################################################################################
+# Command-Line Processing
+################################################################################
+
+self_dir="$(dirname "$0")" || panic "dirname failed"
+
+verbose=0
+
+while getopts v option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	\?)
+		usage "invalid option $option";;
+	esac
+done
+shift $((OPTIND - 1))
+
+################################################################################
+# Determine Clang Include Directory
+################################################################################
+
+# NOTE: This is mainly intended to be used in the GitHub CI workflow.
+if [ -n "$CL_CLANG_INCLUDE_DIR" ]; then
+	echo "$CL_CLANG_INCLUDE_DIR" || panic "echo failed"
+	exit 0
+fi
+
+sde_top_dir="$SDE_TOP_DIR"
+if [ -n "$sde_top_dir" ]; then
+	sde_top_dir="$(realpath "$sde_top_dir")" || panic "realpath failed"
+fi
+
+clang_include_dir=
+
+if [ -n "$CC_CLANG_INCLUDE_DIR" ]; then
+	clang_include_dir="$CC_CLANG_INCLUDE_DIR"
+fi
+
+if [ -z "$clang_include_dir" ]; then
+
+	IFS=":" read -a path <<< "$PATH" || panic "cannot get search path"
+	clangxx=
+	for dir in "${path[@]}"; do
+		if [ "$verbose" -ge 2 ]; then
+			eecho "$dir"
+		fi
+		case "$dir" in
+		*ccache*)
+			if [ "$verbose" -ge 1 ]; then
+				eecho "SKIPPING: $dir"
+			fi
+			continue
+			;;
+		esac
+		if [ -n "$sde_top_dir" ]; then
+			path="$(realpath "$dir")" || panic "realpath failed"
+			if [ "$path" == "$sde_top_dir/bin" ]; then
+				if [ "$verbose" -ge 1 ]; then
+					eecho "SKIPPING: $dir"
+				fi
+				continue
+			fi
+		fi
+		target="$dir/clang++"
+		if [ -x "$target" ]; then
+			clangxx="$target"
+			break
+		fi
+	done
+	if [ -z "$clangxx" ]; then
+		panic "clang++ program not on search path"
+	fi
+	if [ "$verbose" -ge 1 ]; then
+		eecho "clang program $clangxx"
+	fi
+
+	clang_version="$("$clangxx" --version | awk 'NR==1{print $3;}')"
+	if [ "$verbose" -ge 1 ]; then
+		eecho "clang version $clang_version"
+	fi
+
+	clang_dir="$(dirname "$clangxx")" || panic
+
+	for subdir in ../lib ../lib64; do
+		clang_include_dir="$clang_dir/$subdir/clang/$clang_version/include"
+		if [ -d "$clang_include_dir" ]; then
+			break
+		fi
+		clang_include_dir=
+	done
+
+fi
+
+if [ "$verbose" -ge 1 ]; then
+	eecho "expected clang include directory $clang_include_dir"
+fi
+
+if [ ! -d "$clang_include_dir" ]; then
+	panic "clang include directory not found"
+fi
+
+echo "$clang_include_dir"

@@ -1,0 +1,6 @@
+-DGREETING="Hello, World!"
+-DANSWER=42
+-g
+-O2
+-I
+/usr/local/libfoo/include
