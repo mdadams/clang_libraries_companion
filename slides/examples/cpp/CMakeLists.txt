@@ -6,9 +6,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
 
-option(USE_FMTLIB "Use fmtlib for std::format support." false)
-if(USE_FMTLIB)
-	find_package(Fmt REQUIRED)
+find_package(Fmt)
+if(TARGET Fmt::Fmt)
 	link_libraries(Fmt::Fmt)
 endif()
 

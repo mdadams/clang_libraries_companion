@@ -21,7 +21,7 @@ target_link_libraries(cal PRIVATE ${llvm_libs} clangTooling
   libclang Boost::filesystem)
 
 target_link_libraries(cal PRIVATE
-  ${llvm_libs} clangTooling libclang)
+  ${llvm_libs} ${clang_libs})
 
 install(TARGETS cal
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

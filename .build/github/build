@@ -39,8 +39,15 @@ while getopts vs: option; do
 done
 shift $((OPTIND - 1))
 
+build_options=()
 case "$matrix_os" in
+
 ubuntu-*)
+	case "$matrix_os" in
+	*-22.04)
+		build_options+=(--demo)
+		;;
+	esac
 	export CMAKE_PREFIX_PATH="/usr/lib/llvm-15/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
 	export LD_LIBRARY_PATH="/usr/lib/llvm-15/lib:$LD_LIBRARY_PATH"
 	export CL_CLANG_INCLUDE_DIR=/usr/include/clang/15.0.6/include
@@ -63,6 +70,20 @@ ubuntu-*)
 		panic "Clang include directory does not exist"
 	fi
 	;;
+
+macos-*)
+	llvm_dir=/usr/local/Cellar/llvm/15.0.6
+	export CMAKE_PREFIX_PATH="$llvm_dir/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
+	export LD_LIBRARY_PATH="$llvm_dir/lib:$LD_LIBRARY_PATH"
+	export CL_CLANG_INCLUDE_DIR=/usr/local/opt/llvm@15/lib/clang/15.0.6/include
+	export PATH=/usr/local/opt/llvm/bin:$llvm_dir/bin:$PATH
+	build_options+=(--no-enable-asan-user-poisoning)
+	;;
+
+*)
+	panic "invalid matrix OS"
+	;;
+
 esac
 
 if [ "$verbose" -ge 1 ]; then
@@ -97,14 +118,18 @@ if [ "$verbose" -ge 1 ]; then
 	EOF
 fi
 
+if [ ! -d "$CL_CLANG_INCLUDE_DIR" ]; then
+	panic "Clang include directory does not exist ($CL_CLANG_INCLUDE_DIR)"
+fi
+
 "$top_dir/build" \
   --verbose \
   --clean \
   --build \
-  --demo \
   --verbose-makefile \
   --fmt \
   --debug \
   --asan \
   --ubsan \
+  "${build_options[@]}" \
   || panic "build failed"

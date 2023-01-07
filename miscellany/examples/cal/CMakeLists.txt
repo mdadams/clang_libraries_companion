@@ -7,6 +7,7 @@ project(cal LANGUAGES CXX C VERSION ${CAL_VERSION})
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
+include(ClangSetup)
 
 # Adhere to GNU filesystem layout conventions.
 include(GNUInstallDirs)
@@ -25,14 +26,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
 find_package(Boost REQUIRED COMPONENTS filesystem)
-
-option(USE_FMTLIB "Use fmtlib for std::format support." false)
-if(USE_FMTLIB)
-	find_package(Fmt REQUIRED)
+find_package(Fmt)
+if(TARGET Fmt::Fmt)
 	link_libraries(Fmt::Fmt)
 endif()
 
 llvm_map_components_to_libnames(llvm_libs all)
+cl_get_clang_libs(clang_libs)
 
 # If Clang was built with RTTI disabled, then disable RTTI (to avoid linker
 # errors caused by undefined references related to typeinfo).

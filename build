@@ -19,7 +19,7 @@ get_dir()
 	build)
 		result="$dir/tmp_build";;
 	install)
-		result="$dir/tmp_install";;
+		result="$top_dir/install";;
 	*)
 		return 1;;
 	esac
@@ -129,12 +129,20 @@ self_dir="$(realpath "$self_dir")" || \
   panic "cannot get real path of program"
 
 if [ -f "$self_dir/README.md" ]; then
+	top_dir="$self_dir"
+	top_dir="$(realpath "$top_dir")" || panic
 	slides_software_dir="$self_dir/slides/examples"
 	software_dir="$self_dir/miscellany/examples"
 else
+	top_dir="$self_dir/.."
+	top_dir="$(realpath "$top_dir")" || panic
 	slides_software_dir="$self_dir/../slides/software"
 	software_dir="$self_dir/../software"
 fi
+install_dir="$top_dir/install"
+fmt_source_dir="$top_dir/third_party/fmt"
+fmt_build_dir="$top_dir/third_party/tmp_build"
+
 default_software_dirs=(
 	"$slides_software_dir"
 	"$software_dir"
@@ -154,6 +162,8 @@ enable_asan=
 enable_ubsan=
 print_only=0
 software_dirs=()
+stop_after_fmtlib=0
+enable_asan_user_poisoning=1
 
 while [ $# -gt 0 ]; do
 	option="$1"
@@ -284,6 +294,18 @@ while [ $# -gt 0 ]; do
 		software_dirs+=("$1")
 		shift 1
 		;;
+	-0)
+		shift 1
+		stop_after_fmtlib=1
+		;;
+	--no-enable-asan-user-poisoning)
+		shift 1
+		enable_asan_user_poisoning=0
+		;;
+	--enable-asan-user-poisoning)
+		shift 1
+		enable_asan_user_poisoning=1
+		;;
 	--*|-*)
 		usage "invalid option $option"
 		;;
@@ -303,6 +325,59 @@ if [ "${#software_dirs[@]}" -eq 0 ]; then
 fi
 
 ################################################################################
+#
+################################################################################
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+run_command llvm-config --bindir
+run_command llvm-config --includedir
+run_command llvm-config --libdir
+run_command llvm-config --link-shared
+run_command llvm-config --libs all
+
+################################################################################
+#
+################################################################################
+
+if [ "$do_clean" -ne 0 ]; then
+	command=(rm -rf "$install_dir")
+	echo "RUNNING: ${command[*]}"
+	if [ "$print_only" -eq 0 ]; then
+		"${command[@]}" || \
+		  panic "cannot remove build directory"
+	fi
+fi
+
+################################################################################
+#
+################################################################################
+
+if [ "$do_clean" -ne 0 ]; then
+	command=(rm -rf "$fmt_build_dir")
+	echo "RUNNING: ${command[*]}"
+	if [ "$print_only" -eq 0 ]; then
+		"${command[@]}" || \
+		  panic "cannot remove build directory"
+	fi
+fi
+if [ "$use_fmtlib" -ne 0 ]; then
+	cmake -H"${fmt_source_dir}" -B"${fmt_build_dir}" \
+	  -DCMAKE_INSTALL_PREFIX="$install_dir" || panic
+	cmake --build "${fmt_build_dir}" || panic
+fi
+if [ "$stop_after_fmtlib" -ne 0 ]; then
+	exit 0
+fi
+
+################################################################################
 # Clean
 ################################################################################
 
@@ -311,11 +386,9 @@ for work_dir in "${software_dirs[@]}"; do
 	source_dir="$work_dir"
 	build_dir="$(get_dir "$source_dir" build)" || \
 	  panic "cannot get directory name"
-	install_dir="$(get_dir "$source_dir" install)" || \
-	  panic "cannot get directory name"
 
 	if [ "$do_clean" -ne 0 ]; then
-		command=(rm -rf "$build_dir" "$install_dir")
+		command=(rm -rf "$build_dir")
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
 			"${command[@]}" || \
@@ -333,8 +406,6 @@ for work_dir in "${software_dirs[@]}"; do
 
 	source_dir="$work_dir"
 	build_dir="$(get_dir "$source_dir" build)" || \
-	  panic "cannot get directory name"
-	install_dir="$(get_dir "$source_dir" install)" || \
 	  panic "cannot get directory name"
 
 	if [ "$do_build" -ne 0 ]; then
@@ -399,11 +470,14 @@ for work_dir in "${software_dirs[@]}"; do
 	source_dir="$work_dir"
 	build_dir="$(get_dir "$source_dir" build)" || \
 	  panic "cannot get directory name"
-	install_dir="$(get_dir "$source_dir" install)" || \
-	  panic "cannot get directory name"
+
+	run_env=()
+	if [ "$enable_asan_user_poisoning" -eq 0 ]; then
+		run_env+=(ASAN_OPTIONS="allow_user_poisoning=0")
+	fi
 
 	if [ "$do_demo" -ne 0 ]; then
-		command=(env "${cmake_env[@]}"
+		command=(env "${cmake_env[@]}" "${run_env[@]}"
 		  cmake --build "$build_dir" --target demo)
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then

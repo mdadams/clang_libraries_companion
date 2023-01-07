@@ -57,9 +57,7 @@ The CI workflow currently builds for the following platforms:
   - Ubuntu 22.04 with application programs built using each of:
     - Clang
     - GCC
-  - Ubuntu 20.04 with application programs built using each of:
-    - Clang
-    - GCC
+  - MacOS 12 with application programs built using Clang
 
 Prerequisites to Building the Software
 --------------------------------------
@@ -192,6 +190,6 @@ Supported Platforms
 This software should work with most Unix-based systems (provided that
 the necessary software dependencies are installed).
 The GitHub CI workflow (discussed above) ensures that the software should
-build and run reasonably reliably on Ubuntu Linux.
+build and run reasonably reliably on Ubuntu Linux and MacOS.
 The author's main development platform is Fedora Linux.
 So, the software should also work fairly reliably on this platform as well.

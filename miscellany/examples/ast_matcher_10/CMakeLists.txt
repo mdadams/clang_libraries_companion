@@ -4,6 +4,7 @@ project(ast_matcher_10 LANGUAGES CXX C)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
+include(ClangSetup)
 
 option("ENABLE_EXPERIMENTAL" "Enable experimental code" FALSE)
 
@@ -16,16 +17,15 @@ find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
 find_package(CAL REQUIRED)
-
-option(USE_FMTLIB "Use fmtlib for std::format support." false)
-if(USE_FMTLIB)
-	find_package(Fmt REQUIRED)
+find_package(Fmt)
+if(TARGET Fmt::Fmt)
 	link_libraries(Fmt::Fmt)
 endif()
 
 set(LLVM_LINK_COMPONENTS support)
 
 llvm_map_components_to_libnames(llvm_libs support)
+cl_get_clang_libs(clang_libs)
 
 # If Clang was built with RTTI disabled, then disable RTTI (to avoid linker
 # errors caused by undefined references related to typeinfo).
@@ -39,8 +39,8 @@ if(ENABLE_EXPERIMENTAL)
 	target_compile_definitions(matcher PRIVATE ENABLE_EXPERIMENTAL)
 endif()
 
-target_link_libraries(matcher PRIVATE ${llvm_libs} clangTooling
-  libclang Boost::filesystem CAL::CAL)
+target_link_libraries(matcher PRIVATE ${llvm_libs} ${clang_libs}
+  Boost::filesystem CAL::CAL)
 target_include_directories(matcher PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(matcher PRIVATE ${LLVM_DEFINITIONS})
 

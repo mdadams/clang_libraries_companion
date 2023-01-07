@@ -163,6 +163,43 @@ ubuntu-*)
 
 	;;
 
+macos-*)
+
+	#export HOMEBREW_NO_AUTO_UPDATE=1
+	#export HOMEBREW_NO_ANALYTICS=1
+	export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+	export HOMEBREW_NO_INSTALL_CLEANUP=1
+	brew update || panic "brew update failed"
+	brew install coreutils || panic "brew install coreutils failed"
+	if [ 1 -ne 0 ]; then
+		find /usr/local/bin -lname '*/Library/Frameworks/Python.framework/*' \
+		  -delete
+		sudo rm -rf /Library/Frameworks/Python.framework/
+		brew install --force python3 && \
+		  brew unlink python3 && \
+		  brew unlink python3 && \
+		  brew link --overwrite python3 || panic
+	fi
+	brew install boost || panic "brew install boost failed"
+	brew install llvm@15 || panic "brew install failed"
+	#brew install lit || panic "brew install failed"
+
+	list_directory -l /usr/local/Cellar/llvm/15/bin/clang
+	list_directory -l /usr/local/Cellar
+	list_directory -l /usr/local/opt
+	#list_directory -l /usr/local/opt/llvm
+	#list_directory -l /usr/local/opt/clang
+
+	list_directory -l /usr/local/opt/llvm@15/bin
+	list_directory -l /usr/local/opt/llvm@15/include
+	list_directory -l /usr/local/opt/llvm@15/include/clang
+	#list_directory -l /usr/local/opt/llvm@15/include/clang/15.0.6
+	#list_directory -l /usr/local/opt/llvm@15/lib
+	#list_directory -l /usr/local/opt/llvm@15/lib/clang
+	list_directory -l /usr/local/opt/llvm@15/lib/clang/15.0.6/include
+
+	;;
+
 *)
 	panic "invalid OS $matrix_os"
 	;;

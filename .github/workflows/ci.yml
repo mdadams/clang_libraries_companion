@@ -6,8 +6,21 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-20.04]
-        compiler: [ {cc: gcc, cxx: g++}, {cc: clang, cxx: clang++} ]
+        #os: [ubuntu-22.04, ubuntu-20.04, macos-12, macos-11]
+        #compiler: [ {cc: gcc, cxx: g++}, {cc: clang, cxx: clang++} ]
+        include:
+          - os: ubuntu-22.04
+            compiler:
+              cc: gcc
+              cxx: g++
+          - os: ubuntu-22.04
+            compiler:
+              cc: clang
+              cxx: clang++
+          - os: macos-12
+            compiler:
+              cc: clang
+              cxx: clang++
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:

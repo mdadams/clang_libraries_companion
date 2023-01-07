@@ -4,7 +4,6 @@ project(examples LANGUAGES CXX)
 
 option(ENABLE_ASAN "Enable ASan" TRUE)
 option(ENABLE_UBSAN "Enable UBSan" TRUE)
-option(USE_FMTLIB "Use fmtlib for std::format support." false)
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 #set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -14,31 +13,8 @@ include(FetchContent)
 
 ################################################################################
 
-if(USE_FMTLIB)
-	ExternalProject_Add(fmt
-	  SOURCE_DIR ${CMAKE_BINARY_DIR}/fmt-source
-	  BINARY_DIR ${CMAKE_BINARY_DIR}/fmt
-	  INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
-	  GIT_REPOSITORY https://github.com/mdadams/sde.git
-	  #GIT_TAG        v5.0.1
-	  GIT_TAG        5d564f0eb372b66ecacd909e0e483ec82b8c1e6f
-	  CONFIGURE_COMMAND ""
-	  BUILD_COMMAND ""
-	  UPDATE_COMMAND ""
-	  INSTALL_COMMAND
-	  <SOURCE_DIR>/bin/sde_install_fmtlib
-	  -x
-	  -y
-	  -v 9.1.0
-	  -d <INSTALL_DIR>
-	  )
-endif()
-
-################################################################################
-
 set(cmake_args "")
 list(APPEND cmake_args "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
-list(APPEND cmake_args "-DUSE_FMTLIB=${USE_FMTLIB}")
 if(CMAKE_VERBOSE_MAKEFILE)
 	list(APPEND cmake_args
 	  "-DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}")
@@ -130,8 +106,5 @@ foreach(dir IN LISTS project_dirs)
 	add_dependencies(demo ${target}-demo)
 
 	add_dependencies(${target} cal)
-	if(USE_FMTLIB)
-		add_dependencies(${target} fmt)
-	endif()
 
 endforeach()
