@@ -55,6 +55,7 @@ list(APPEND project_dirs
   linter
   preproc_macros_1
   headers
+  query_dependencies
   #ast_matcher_11
   #dump_tokens
   #test_ast_visitor_1

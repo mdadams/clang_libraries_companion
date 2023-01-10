@@ -58,9 +58,12 @@ dump_ast=0
 cxx_std=
 verbose=0
 parse_comments=0
+all_tests=0
 
-while getopts Cc:vi:s:d:IA option; do
+while getopts Cc:vi:s:d:IAa option; do
 	case "$option" in
+	a)
+		all_tests=1;;
 	C)
 		parse_comments=1;;
 	v)
@@ -83,7 +86,8 @@ while getopts Cc:vi:s:d:IA option; do
 done
 shift $((OPTIND - 1))
 
-default_source_files=(
+# The following is a list of all of the source files for testing.
+all_source_files=(
 	"$source_dir"/data/empty.cpp
 	"$source_dir"/data/standard_headers.cpp
 	"$source_dir"/data/example_1.cpp
@@ -103,6 +107,22 @@ default_source_files=(
 	"$source_dir"/data/example_18.cpp
 	"$source_dir"/data/example_19.cpp
 )
+
+# Generate the default list of source files for testing by omitting some
+# more expensive (and/or overly verbose) tests.
+default_source_files=()
+for source_file in "${all_source_files[@]}"; do
+	skip_test=0
+	case "$source_file" in
+	*/standard_headers.cpp)
+		skip_test=1;;
+	esac
+	if [ "$all_tests" -ne 0 -o "$skip_test" -eq 0 ]; then
+		default_source_files+=("$source_file")
+	#else
+	#	echo "SKIPPING: $source_file"
+	fi
+done
 
 source_files+=("$@")
 

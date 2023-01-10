@@ -5,7 +5,7 @@ This repository contains all of the code examples that are associated
 with the following slide deck:
 
   - Michael D. Adams.
-    Lecture Slides for the Clang Libraries.
+    Lecture Slides for the Clang Libraries [LLVM/Clang 15].
     Edition 0.0,
     Dec. 2022.
 
@@ -57,7 +57,9 @@ The CI workflow currently builds for the following platforms:
   - Ubuntu 22.04 with application programs built using each of:
     - Clang
     - GCC
-  - MacOS 12 with application programs built using Clang
+  - Ubuntu 20.04 with application programs built using each of:
+    - Clang
+    - GCC
 
 Prerequisites to Building the Software
 --------------------------------------
@@ -90,17 +92,18 @@ examples in one step.
 
 Some of the code examples require std::format (introduced in C++20).
 If the C++ standard library implementation being used does not support
-std::format, a customized version of the fmt library can be used for
-std::format support.
+std::format, a customized version of the fmt library can be automatically
+installed (as part of the build process) to provide this support.
 
-To build all of the code examples (and optionally run all of the demos),
-do the following:
+To build all of the code examples (and optionally run all of the associated
+demos), do the following:
 
-0. Specify any special directories that are needed in order for the
-   software dependencies (e.g., executables, headers, or libraries) to be
-   found successfully.  **This step is typically only required if some of the
-   software dependencies are installed in locations where they would
-   not normally be found by the build process.**
+0. Initialize the environment such that the necessary software dependencies
+   (e.g., executables, headers, or libraries) will be found successfully
+   at build time.
+   **This step is typically only required if some of the software dependencies
+   are installed in locations where they would not normally be found by the
+   build process.**
    When this step is required, it might look something like the following:
 
        # Initialize the following variables used to configure the
@@ -170,19 +173,30 @@ cyclomatic_complexity project, use the command:
 
     slides/examples/tmp_build/cyclomatic_complexity/demo
 
-A Note on Address Sanitizer (ASan)
-----------------------------------
+Remarks on the Use of Address Sanitizer (ASan)
+----------------------------------------------
 
-If user poisoning of memory causes problems with Address Sanitizer (ASan),
-this can be disabled through the ASAN_OPTIONS environment variable:
+Sometimes the use of Address Sanitizer (ASan) can be problematic, due,
+for example, to quirks in the platform on which the code is being run.
 
-    ASAN_OPTIONS="allow_user_poisoning=0"
+On some platforms, some of the libraries used by the code examples
+have been observed to have memory leaks.  If ASan complains about some
+libraries having memory leaks, memory leak detection can be disabled
+by adding "detect_leaks=0" to the list of ASan options in the ASAN_OPTIONS
+environment variable.  For example, ASAN_OPTIONS can be set as follows:
+
+    ASAN_OPTIONS=detect_leaks=0
 
 It appears that user poisoning of memory can sometimes result in false
 positives from ASan (namely, use-after-poison errors), depending on how
 LLVM/Clang was built.  This is likely due to inconsistencies in how
 user poisoning is handled in the LLVM/Clang libraries and the application
-using these libraries.
+using these libraries.  If this problem is encountered, user poisoning
+can be disabled by adding "allow_user_poisoning=0" to the list of ASan
+options in the ASAN_OPTIONS environment variable.  For example,
+ASAN_OPTIONS can be set as follows:
+
+    ASAN_OPTIONS=allow_user_poisoning=0
 
 Supported Platforms
 -------------------
@@ -190,6 +204,6 @@ Supported Platforms
 This software should work with most Unix-based systems (provided that
 the necessary software dependencies are installed).
 The GitHub CI workflow (discussed above) ensures that the software should
-build and run reasonably reliably on Ubuntu Linux and MacOS.
+build and run reasonably reliably on Ubuntu Linux.
 The author's main development platform is Fedora Linux.
 So, the software should also work fairly reliably on this platform as well.
