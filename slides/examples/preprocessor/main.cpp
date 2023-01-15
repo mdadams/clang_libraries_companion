@@ -11,9 +11,12 @@
 namespace ct = clang::tooling;
 using namespace std::literals;
 
+static llvm::cl::OptionCategory toolCategory("Tool Options");
+
 std::string locationToString(const clang::SourceManager& sourceManager,
   clang::SourceLocation sourceLoc) {
-	return std::format("{}:{}:{}", sourceManager.getFilename(sourceLoc),
+	return std::format("{}:{}:{}",
+	  std::string(sourceManager.getFilename(sourceLoc)),
 	  sourceManager.getSpellingLineNumber(sourceLoc),
 	  sourceManager.getSpellingColumnNumber(sourceLoc));
 }
@@ -51,8 +54,6 @@ class IncludeFinderAction : public clang::PreprocessOnlyAction {
 		return true;
 	}
 };
-
-static llvm::cl::OptionCategory toolCategory("Tool Options");
 
 int main(int argc, char **argv) {
 	auto expectedOptionsParser = ct::CommonOptionsParser::create(argc,

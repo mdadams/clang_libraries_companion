@@ -37,8 +37,8 @@ int main(int argc, const char **argv) {
 	}
 	clang::tooling::CommonOptionsParser& optionsParser = *expectedOptionsParser;
 	llvm::outs()
-	  << std::format("verbose {}\n", verbose)
-	  << std::format("foobar {}\n", foobar)
+	  << std::format("verbose {}\n", static_cast<bool>(verbose))
+	  << std::format("foobar {}\n", static_cast<bool>(foobar))
 	  << std::format("operation {}\n",
 	    !opName.empty() ? opName : "(null)"s)
 	  << std::format("output file {}\n",

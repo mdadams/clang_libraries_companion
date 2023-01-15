@@ -14,7 +14,8 @@ namespace ct = clang::tooling;
 
 std::string locationToString(const clang::SourceManager& sourceManager,
   clang::SourceLocation sourceLoc) {
-	return std::format("{}:{}:{}", sourceManager.getFilename(sourceLoc),
+	return std::format("{}:{}:{}",
+	  std::string(sourceManager.getFilename(sourceLoc)),
 	  sourceManager.getSpellingLineNumber(sourceLoc),
 	  sourceManager.getSpellingColumnNumber(sourceLoc));
 }

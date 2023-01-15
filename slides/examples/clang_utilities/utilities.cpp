@@ -1,12 +1,12 @@
 #include <format>
-
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Lex/Lexer.h"
 
 std::string locationToString(const clang::SourceManager& sourceManager,
   clang::SourceLocation sourceLoc) {
-	return std::format("{}:{}({})", sourceManager.getFilename(sourceLoc),
+	return std::format("{}:{}({})",
+	  std::string(sourceManager.getFilename(sourceLoc)),
 	  sourceManager.getSpellingLineNumber(sourceLoc),
 	  sourceManager.getSpellingColumnNumber(sourceLoc));
 }

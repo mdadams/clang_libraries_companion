@@ -106,6 +106,6 @@ foreach(dir IN LISTS project_dirs)
 	add_dependencies(build ${target}-build)
 	add_dependencies(demo ${target}-demo)
 
-	add_dependencies(${target} cal)
+	add_dependencies(${target}-configure cal-install)
 
 endforeach()

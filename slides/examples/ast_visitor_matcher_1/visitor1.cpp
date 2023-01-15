@@ -11,6 +11,8 @@
 
 namespace ct = clang::tooling;
 
+static llvm::cl::OptionCategory toolOptions("Tool Options");
+
 class MyAstVisitor : public clang::RecursiveASTVisitor<MyAstVisitor> {
 public:
 	using Base = clang::RecursiveASTVisitor<MyAstVisitor>;
@@ -79,12 +81,11 @@ struct MyAstConsumer : public clang::ASTConsumer {
 struct MyFrontendAction : public clang::ASTFrontendAction {
 	std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(
 	  clang::CompilerInstance&, clang::StringRef fileName) final {
-		llvm::outs() << std::format("PROCESSING SOURCE FILE {}\n", fileName);
+		llvm::outs() << std::format("PROCESSING SOURCE FILE {}\n",
+		  std::string(fileName));
 		return std::unique_ptr<clang::ASTConsumer>{new MyAstConsumer};
 	}
 };
-
-static llvm::cl::OptionCategory toolOptions("Tool Options");
 
 int main(int argc, char** argv) {
 	auto expectedOptionsParser = ct::CommonOptionsParser::create(argc,

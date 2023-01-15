@@ -1,14 +1,12 @@
 find_path(
   FMT_INCLUDE_DIR
-  fmt/core.h
-  HINTS ENV CC_INC_PATH
+  stdfmt/core.h
   )
 mark_as_advanced(FMT_INCLUDE_DIR)
 
 find_library(
   FMT_LIBRARY
-  NAMES fmt fmtd
-  HINTS ENV CC_LIB_PATH
+  NAMES stdfmt
   )
 mark_as_advanced(FMT_LIBRARY)
 

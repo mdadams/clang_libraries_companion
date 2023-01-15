@@ -46,7 +46,8 @@ unsigned int getDepth(clang::ASTContext& astContext,
 			break;
 		}
 		if (parents.size() > 1) {
-			llvm::outs() << std::format("multiple parents {}\n", parents.size());
+			llvm::outs() << std::format("multiple parents {}\n",
+			  parents.size());
 		}
 		++count;
 		curNode = &parents[0];
@@ -64,7 +65,8 @@ clang::DynTypedNode getFarAncestor(clang::ASTContext& astContext,
 			break;
 		}
 		if (parents.size() > 1) {
-			llvm::outs() << std::format("multiple parents {}\n", parents.size());
+			llvm::outs() << std::format("multiple parents {}\n",
+			  parents.size());
 		}
 		curNode = &parents[0];
 		parentNode = *curNode;
@@ -78,7 +80,8 @@ clang::DynTypedNode getParent(clang::ASTContext& astContext,
 	clang::DynTypedNode parentNode;
 	if (parents.size() > 0) {
 		if (parents.size() > 1) {
-			llvm::outs() << std::format("multiple parents {}\n", parents.size());
+			llvm::outs() << std::format("multiple parents {}\n",
+			  parents.size());
 		}
 		parentNode = parents[0];
 	} else {
@@ -217,14 +220,16 @@ bool printMatch(clang::SourceManager& sourceManager, clang::SourceRange
 	}
 	llvm::outs()
 	  << std::format("expansion range {}:{}({})-{}:{}({})\n", expFileName,
-	  expBeginLineNum, expBeginColumnNum, expEndFileName, expEndLineNum, expEndColumnNum)
+	  expBeginLineNum, expBeginColumnNum, expEndFileName, expEndLineNum,
+	  expEndColumnNum)
 	  << std::format("\nexpansion range text:\n{}\n",
-	  validText ?  cal::addLineNumbers(text, expBeginLineNum, expBeginColumnNum,
-	  true, true) : "[invalid]\n");
+	  validText ?  cal::addLineNumbers(text, expBeginLineNum,
+	  expBeginColumnNum, true, true) : "[invalid]\n");
 
 	llvm::outs()
 	  << std::format("spelling location {}:{}({})\n",
-	  sourceManager.getFilename(sourceManager.getSpellingLoc(sourceRange.getBegin())),
+	  std::string(sourceManager.getFilename(sourceManager.getSpellingLoc(
+	  sourceRange.getBegin()))),
 	  sourceManager.getSpellingLineNumber(sourceRange.getBegin()),
 	  sourceManager.getSpellingColumnNumber(sourceRange.getBegin()));
 
@@ -250,7 +255,8 @@ bool printMatch(clang::SourceManager& sourceManager, clang::SourceRange
 			llvm::outs() << std::format("\nsource range:\n{}\n",
 			  cal::addLineNumbers(text, 1, 1, true, true));
 		} else {
-			llvm::outs() << "cannot print range (probably in macro expansion)\n";
+			llvm::outs() <<
+			  "cannot print range (probably in macro expansion)\n";
 		}
 	} else {
 		llvm::outs() << "source range same as expansion range\n";
@@ -417,18 +423,22 @@ public:
 			auto parents = astContext.getParents(node);
 			clang::DynTypedNode farthestAncestor =
 			  getFarAncestor(astContext, &node);
-			llvm::outs() << std::format("depth: {}\n", getDepth(astContext, &node));
-			llvm::outs() << std::format("number of parents: {}\n", parents.size());
+			llvm::outs() << std::format("depth: {}\n",
+			  getDepth(astContext, &node));
+			llvm::outs() << std::format("number of parents: {}\n",
+			  parents.size());
 			farthestAncestor.dump(llvm::outs(), astContext);
 			node.dump(llvm::outs(), astContext);
 			{
 				clang::DynTypedNode curNode = node;
 				for (;;) {
-					clang::DynTypedNode parentNode = getParent(astContext, &curNode);
+					clang::DynTypedNode parentNode =
+					  getParent(astContext, &curNode);
 					llvm::outs()
 					  << std::format("{}\n", std::string(80, '-'), count_);
 					llvm::outs()
-					  << std::format("node kind {}\n", std::string(parentNode.getNodeKind().asStringRef()));
+					  << std::format("node kind {}\n",
+					  std::string(parentNode.getNodeKind().asStringRef()));
 					parentNode.dump(llvm::outs(), astContext);
 					curNode = parentNode;
 					if (parentNode.getNodeKind().isNone()) {
@@ -442,12 +452,14 @@ public:
 		if (sourceRange.isValid()) {
 			llvm::outs()
 			  << std::format("begin spelling location {}:{}({})\n",
-			  sourceManager.getFilename(sourceManager.getSpellingLoc(sourceRange.getBegin())),
+			  std::string(sourceManager.getFilename(
+			  sourceManager.getSpellingLoc(sourceRange.getBegin()))),
 			  sourceManager.getSpellingLineNumber(sourceRange.getBegin()),
 			  sourceManager.getSpellingColumnNumber(sourceRange.getBegin()));
 			llvm::outs()
 			  << std::format("end spelling location {}:{}({})\n",
-			  sourceManager.getFilename(sourceManager.getSpellingLoc(sourceRange.getEnd())),
+			  std::string(sourceManager.getFilename(
+			  sourceManager.getSpellingLoc(sourceRange.getEnd()))),
 			  sourceManager.getSpellingLineNumber(sourceRange.getEnd()),
 			  sourceManager.getSpellingColumnNumber(sourceRange.getEnd()));
 			status = printMatch(sourceManager, sourceRange);
@@ -457,7 +469,8 @@ public:
 		if (sourceLocation.isValid()) {
 			llvm::outs()
 			  << std::format("spelling location {}:{}({})\n",
-			  sourceManager.getFilename(sourceManager.getSpellingLoc(sourceLocation)),
+			  std::string(sourceManager.getFilename(
+			  sourceManager.getSpellingLoc(sourceLocation))),
 			  sourceManager.getSpellingLineNumber(sourceLocation),
 			  sourceManager.getSpellingColumnNumber(sourceLocation));
 		} else {
@@ -489,7 +502,7 @@ int main(int argc, const char **argv) {
 	if (!clClangIncludeDir.empty()) {
 		if (clVerbose >= 1) {
 			llvm::outs() << std::format("Clang include directory: {}\n",
-			  clClangIncludeDir);
+			  std::string(clClangIncludeDir));
 		}
 		tool.appendArgumentsAdjuster(ct::getInsertArgumentAdjuster(("-I"s +=
 		  clClangIncludeDir).c_str(), ct::ArgumentInsertPosition::BEGIN));
@@ -497,7 +510,8 @@ int main(int argc, const char **argv) {
 	cam::MatchFinder matchFinder;
 	MyMatchCallback matchCallback;
 	if (clDeclMatcherId >= 0) {
-		llvm::outs() << std::format("decl matcher {}\n", clDeclMatcherId);
+		llvm::outs() << std::format("decl matcher {}\n",
+		  static_cast<int>(clDeclMatcherId));
 		cam::DeclarationMatcher matcher = getDeclMatcher(clDeclMatcherId);
 		if (clIgnoreImplicit) {
 			llvm::outs() << "NOTE: IGNORING IMPLICIT NODES\n";
@@ -507,7 +521,8 @@ int main(int argc, const char **argv) {
 		matchFinder.addMatcher(matcher, &matchCallback);
 	}
 	if (clStmtMatcherId >= 0) {
-		llvm::outs() << std::format("stmt matcher\n", clStmtMatcherId);
+		llvm::outs() << std::format("stmt matcher\n",
+		  static_cast<int>(clStmtMatcherId));
 		cam::StatementMatcher matcher = getStmtMatcher(clStmtMatcherId);
 		if (clIgnoreImplicit) {
 			llvm::outs() << "NOTE: IGNORING IMPLICIT NODES\n";

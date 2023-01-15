@@ -164,6 +164,7 @@ print_only=0
 software_dirs=()
 stop_after_fmtlib=0
 enable_asan_user_poisoning=1
+num_jobs=8
 
 while [ $# -gt 0 ]; do
 	option="$1"
@@ -227,6 +228,12 @@ while [ $# -gt 0 ]; do
 	--demo|-t)
 		shift 1
 		do_demo=1
+		;;
+	--num-jobs)
+		shift 1
+		[ $# -gt 0 ] || usage "missing argument"
+		num_jobs="$1"
+		shift 1
 		;;
 	--cxx-compiler)
 		shift 1
@@ -343,6 +350,34 @@ run_command llvm-config --libdir
 run_command llvm-config --link-shared
 run_command llvm-config --libs all
 
+base_cmake_configure_options=(
+	-DCMAKE_INSTALL_PREFIX="$install_dir"
+)
+if [ -n "$build_type" ]; then
+	base_cmake_configure_options+=(-DCMAKE_BUILD_TYPE=Debug)
+fi
+if [ -n "$verbose_makefile" ]; then
+	base_cmake_configure_options+=(-DCMAKE_VERBOSE_MAKEFILE="$verbose_makefile")
+fi
+if [ -n "$enable_asan" ]; then
+	base_cmake_configure_options+=(-DENABLE_ASAN="$enable_asan")
+fi
+if [ -n "$enable_ubsan" ]; then
+	base_cmake_configure_options+=(-DENABLE_UBSAN="$enable_ubsan")
+fi
+
+base_cmake_env=()
+if [ -n "$cxx_compiler" ]; then
+	base_cmake_env+=(CXX="$cxx_compiler")
+fi
+if [ -n "$c_compiler" ]; then
+	base_cmake_env+=(CC="$c_compiler")
+fi
+
+base_cmake_build_options=(
+	--parallel "$num_jobs"
+)
+
 ################################################################################
 #
 ################################################################################
@@ -369,9 +404,13 @@ if [ "$do_clean" -ne 0 ]; then
 	fi
 fi
 if [ "$use_fmtlib" -ne 0 ]; then
-	cmake -H"${fmt_source_dir}" -B"${fmt_build_dir}" \
-	  -DCMAKE_INSTALL_PREFIX="$install_dir" || panic
-	cmake --build "${fmt_build_dir}" || panic
+	env "${base_cmake_env[@]}" \
+	  cmake -H"${fmt_source_dir}" -B"${fmt_build_dir}" \
+	  "${base_cmake_configure_options[@]}" || \
+	  panic "configure failed"
+	env "${base_cmake_env[@]}" \
+	  cmake --build "${fmt_build_dir}" "${base_cmake_build_options[@]}" || \
+	  panic "build failed"
 fi
 if [ "$stop_after_fmtlib" -ne 0 ]; then
 	exit 0
@@ -410,33 +449,11 @@ for work_dir in "${software_dirs[@]}"; do
 
 	if [ "$do_build" -ne 0 ]; then
 
-		cmake_env=()
-		cmake_configure_options=()
-
-		cmake_configure_options+=(-DCMAKE_INSTALL_PREFIX="$install_dir")
-
+		cmake_env=("${base_cmake_env[@]}")
+		cmake_configure_options=("${base_cmake_configure_options[@]}")
 		# ENABLE_EXPERIMENTAL?
-
-		if [ -n "$cxx_compiler" ]; then
-			cmake_env+=(CXX="$cxx_compiler")
-		fi
-		if [ -n "$c_compiler" ]; then
-			cmake_env+=(CC="$c_compiler")
-		fi
 		if [ -n "$enable_extras" ]; then
 			cmake_configure_options+=(-DENABLE_EXTRAS="$enable_extras")
-		fi
-		if [ -n "$build_type" ]; then
-			cmake_configure_options+=(-DCMAKE_BUILD_TYPE=Debug)
-		fi
-		if [ -n "$verbose_makefile" ]; then
-			cmake_configure_options+=(-DCMAKE_VERBOSE_MAKEFILE="$verbose_makefile")
-		fi
-		if [ -n "$enable_asan" ]; then
-			cmake_configure_options+=(-DENABLE_ASAN="$enable_asan")
-		fi
-		if [ -n "$enable_ubsan" ]; then
-			cmake_configure_options+=(-DENABLE_UBSAN="$enable_ubsan")
 		fi
 		if [ -n "$use_fmtlib" ]; then
 			cmake_configure_options+=(-DUSE_FMTLIB="$use_fmtlib")
@@ -450,7 +467,10 @@ for work_dir in "${software_dirs[@]}"; do
 			  panic "cmake configure failed"
 		fi
 
-		command=(env "${cmake_env[@]}" cmake --build "$build_dir")
+		cmake_build_options=("${base_cmake_build_options[@]}")
+
+		command=(env "${cmake_env[@]}"
+		  cmake --build "$build_dir" "${cmake_build_options[@]}")
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
 			"${command[@]}" || \
@@ -477,8 +497,11 @@ for work_dir in "${software_dirs[@]}"; do
 	fi
 
 	if [ "$do_demo" -ne 0 ]; then
+		cmake_build_options=(
+			--parallel "$num_jobs"
+		)
 		command=(env "${cmake_env[@]}" "${run_env[@]}"
-		  cmake --build "$build_dir" --target demo)
+		  cmake --build "$build_dir" --target demo "${cmake_build_options[@]}")
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
 			"${command[@]}" || \

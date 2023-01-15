@@ -14,6 +14,8 @@
 namespace ct = clang::tooling;
 namespace cam = clang::ast_matchers;
 
+static llvm::cl::OptionCategory optionCategory("Tool options");
+
 template<class NodeType>
 const NodeType* getParentOfStmt(clang::ASTContext& astContext,
   const clang::Stmt* stmt) {
@@ -94,12 +96,11 @@ struct MyAstConsumer : public clang::ASTConsumer {
 struct MyFrontendAction : public clang::ASTFrontendAction {
 	std::unique_ptr<clang::ASTConsumer> CreateASTConsumer(
 	  clang::CompilerInstance&, clang::StringRef fileName) final {
-		llvm::outs() << std::format("PROCESSING SOURCE FILE {}\n", fileName);
+		llvm::outs() << std::format("PROCESSING SOURCE FILE {}\n",
+		  std::string(fileName));
 		return std::unique_ptr<clang::ASTConsumer>{new MyAstConsumer};
 	}
 };
-
-static llvm::cl::OptionCategory optionCategory("Tool options");
 
 int main(int argc, const char **argv) {
 	auto expectedParser = ct::CommonOptionsParser::create(argc, argv,
@@ -111,7 +112,8 @@ int main(int argc, const char **argv) {
 	ct::CommonOptionsParser& optionsParser = expectedParser.get();
 	ct::ClangTool tool(optionsParser.getCompilations(),
 	  optionsParser.getSourcePathList());
-	int status = tool.run(ct::newFrontendActionFactory<MyFrontendAction>().get());
+	int status =
+	  tool.run(ct::newFrontendActionFactory<MyFrontendAction>().get());
 	if (status) {llvm::errs() << "error detected\n";}
 	return !status ? 0 : 1;
 }

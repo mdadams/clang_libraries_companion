@@ -13,6 +13,22 @@ list_files()
     find "$1" -printf "%M %u %P\n" | sort
 }
 
+get_clang_version()
+{
+	local program="${1:-clang++}"
+	"$program" --version | awk '
+		(NR==1){
+			for (i = 1; i <= NF; ++i) {
+				if (tolower($i) == "version") {
+					++i;
+					print $i;
+					break;
+				}
+			}
+		}
+	'
+}
+
 ################################################################################
 
 self_program="$(realpath "$0")" || \
@@ -39,7 +55,9 @@ while getopts vs: option; do
 done
 shift $((OPTIND - 1))
 
+
 build_options=()
+build_options+=(--num-jobs 4)
 case "$matrix_os" in
 
 ubuntu-*)
@@ -48,10 +66,12 @@ ubuntu-*)
 		build_options+=(--demo)
 		;;
 	esac
+	export PATH="/usr/lib/llvm-15/bin:$PATH"
+	clang_program="$(type -P clang++)" || panic
+	clang_version="$(get_clang_version "$clang_program")" || panic
 	export CMAKE_PREFIX_PATH="/usr/lib/llvm-15/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
 	export LD_LIBRARY_PATH="/usr/lib/llvm-15/lib:$LD_LIBRARY_PATH"
-	export CL_CLANG_INCLUDE_DIR=/usr/include/clang/15.0.6/include
-	export PATH="/usr/lib/llvm-15/bin:$PATH"
+	export CL_CLANG_INCLUDE_DIR=/usr/include/clang/$clang_version/include
 	case "$CC" in
 	*clang*)
 		export CC="clang"
@@ -66,17 +86,16 @@ ubuntu-*)
 		esac
 		;;
 	esac
-	if [ ! -d "$CL_CLANG_INCLUDE_DIR" ]; then
-		panic "Clang include directory does not exist"
-	fi
 	;;
 
 macos-*)
-	llvm_dir=/usr/local/Cellar/llvm/15.0.6
+	# TODO: How to find the version number?
+	clang_version=15.0.6
+	llvm_dir=/usr/local/Cellar/llvm/$clang_version
+	export PATH=/usr/local/opt/llvm/bin:$llvm_dir/bin:$PATH
 	export CMAKE_PREFIX_PATH="$llvm_dir/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
 	export LD_LIBRARY_PATH="$llvm_dir/lib:$LD_LIBRARY_PATH"
-	export CL_CLANG_INCLUDE_DIR=/usr/local/opt/llvm@15/lib/clang/15.0.6/include
-	export PATH=/usr/local/opt/llvm/bin:$llvm_dir/bin:$PATH
+	export CL_CLANG_INCLUDE_DIR=/usr/local/opt/llvm@15/lib/clang/$clang_version/include
 	build_options+=(--no-enable-asan-user-poisoning)
 	;;
 
