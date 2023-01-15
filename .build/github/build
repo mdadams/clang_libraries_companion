@@ -67,11 +67,8 @@ ubuntu-*)
 		;;
 	esac
 	export PATH="/usr/lib/llvm-15/bin:$PATH"
-	clang_program="$(type -P clang++)" || panic
-	clang_version="$(get_clang_version "$clang_program")" || panic
 	export CMAKE_PREFIX_PATH="/usr/lib/llvm-15/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
 	export LD_LIBRARY_PATH="/usr/lib/llvm-15/lib:$LD_LIBRARY_PATH"
-	export CL_CLANG_INCLUDE_DIR=/usr/include/clang/$clang_version/include
 	case "$CC" in
 	*clang*)
 		export CC="clang"
@@ -90,12 +87,12 @@ ubuntu-*)
 
 macos-*)
 	# TODO: How to find the version number?
-	clang_version=15.0.6
+	clang_version=15.0.7
 	llvm_dir=/usr/local/Cellar/llvm/$clang_version
 	export PATH=/usr/local/opt/llvm/bin:$llvm_dir/bin:$PATH
 	export CMAKE_PREFIX_PATH="$llvm_dir/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
 	export LD_LIBRARY_PATH="$llvm_dir/lib:$LD_LIBRARY_PATH"
-	export CL_CLANG_INCLUDE_DIR=/usr/local/opt/llvm@15/lib/clang/$clang_version/include
+	#export CL_CLANG_INCLUDE_DIR=/usr/local/opt/llvm@15/lib/clang/$clang_version/include
 	build_options+=(--no-enable-asan-user-poisoning)
 	;;
 
@@ -118,8 +115,6 @@ if [ "$verbose" -ge 1 ]; then
 	============================================================
 	CMAKE_PREFIX_PATH: $CMAKE_PREFIX_PATH
 	============================================================
-	CL_CLANG_INCLUDE_DIR: $CL_CLANG_INCLUDE_DIR
-	============================================================
 	Clang version:
 	$(clang++ --version)
 	$(clang --version)
@@ -135,10 +130,6 @@ if [ "$verbose" -ge 1 ]; then
 	$(clang++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
 	============================================================
 	EOF
-fi
-
-if [ ! -d "$CL_CLANG_INCLUDE_DIR" ]; then
-	panic "Clang include directory does not exist ($CL_CLANG_INCLUDE_DIR)"
 fi
 
 "$top_dir/build" \

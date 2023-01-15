@@ -148,6 +148,8 @@ default_software_dirs=(
 	"$software_dir"
 )
 
+get_clang_include_dir="$software_dir/bin/get_clang_include_dir"
+
 build_type=Debug
 c_compiler="$CC"
 cxx_compiler="$CXX"
@@ -349,6 +351,8 @@ run_command llvm-config --includedir
 run_command llvm-config --libdir
 run_command llvm-config --link-shared
 run_command llvm-config --libs all
+
+run_command "$get_clang_include_dir" -v
 
 base_cmake_configure_options=(
 	-DCMAKE_INSTALL_PREFIX="$install_dir"

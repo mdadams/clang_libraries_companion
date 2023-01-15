@@ -25,10 +25,10 @@ jobs:
             compiler:
               cc: clang
               cxx: clang++
-          #- os: macos-12
-          #  compiler:
-          #    cc: clang
-          #    cxx: clang++
+          ##- os: macos-12
+          ##  compiler:
+          ##    cc: clang
+          ##    cxx: clang++
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
