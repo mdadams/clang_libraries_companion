@@ -7,7 +7,7 @@ cmake_binary_dir="@CMAKE_BINARY_DIR@"
 
 panic()
 {
-	echo "ERROR"
+	echo "ERROR: $*"
 	exit 1
 }
 
@@ -55,11 +55,14 @@ fixed)
 	;;
 
 adjuster)
+	base_options=(
+	  #-j "$source_dir/compile_commands.json"
+	  -f "$source_dir/data/fixed_compilation_database.txt"
+	  -a 0
+	)
 	run_command \
 	  "$build_dir/arg_adjuster" \
-	  -j "$source_dir/compile_commands.json" \
-	  -f "$source_dir/data/fixed_compilation_database.txt" \
-	  -a 0 \
+	  "${base_options[@]}" \
 	  "${options[@]}" \
 	  hello.cpp || \
 	  panic "tool failed"

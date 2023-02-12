@@ -27,28 +27,41 @@ run_clang_tool="$source_dir/run_clang_tool"
 
 ################################################################################
 
-program="$build_dir/matcher"
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+	EOF
+	exit 2
+}
 
-enable_special_test=1
+program="$build_dir/app"
+verbose=0
 source_files=()
-source_files+=("$data_dir"/example_*.cpp)
 
-program_options=()
-program_options+=(-p "$build_dir")
+while getopts v option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
 
-if [ "$enable_special_test" -ne 0 ]; then
-	for func in foo bar; do
-		source_file="$data_dir/example_1.cpp"
-		echo "TEST: $source_file"
-		run_command "$run_clang_tool" "$program" "${program_options[@]}" \
-		  -f foo "$source_file" || \
-		  panic "program failed"
-	done
+source_files+=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir"/example_1.cpp)
 fi
 
+options+=(-p "$build_dir")
+
 for source_file in "${source_files[@]}"; do
-	echo "TEST: $source_file"
-	run_command "$run_clang_tool" "$program" "${program_options[@]}" \
-	  -f foo "$source_file" || \
-	  panic "program failed"
+	echo "SOURCE FILE: $source_file"
+	python -c 'print("*" * 40)'
+	run_command \
+	  "$run_clang_tool" "$program" "${options[@]}" "$source_file" || \
+	  panic "tool failed"
+	python -c 'print("*" * 40)'
 done

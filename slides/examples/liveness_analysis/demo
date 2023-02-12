@@ -7,7 +7,7 @@ cmake_binary_dir="@CMAKE_BINARY_DIR@"
 
 panic()
 {
-	echo "ERROR: $@"
+	echo "ERROR: $*"
 	exit 1
 }
 

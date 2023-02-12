@@ -59,6 +59,7 @@ list(APPEND project_dirs
   liveness_analysis
   #llvm_clang_usage
   preprocessor
+  template_1
 )
 
 message("cmake_args ${cmake_args}")

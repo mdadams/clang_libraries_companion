@@ -59,6 +59,7 @@ list(APPEND project_dirs
   #ast_matcher_11
   #dump_tokens
   #test_ast_visitor_1
+  template_10
 )
 
 message("cmake_args ${cmake_args}")
