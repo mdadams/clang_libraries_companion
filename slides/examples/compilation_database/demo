@@ -56,8 +56,8 @@ fixed)
 
 adjuster)
 	base_options=(
-	  #-j "$source_dir/compile_commands.json"
-	  -f "$source_dir/data/fixed_compilation_database.txt"
+	  #-f "$source_dir/data/fixed_compilation_database.txt"
+	  -j "$source_dir/data/compile_commands.json"
 	  -a 0
 	)
 	run_command \

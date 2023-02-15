@@ -56,6 +56,7 @@ list(APPEND project_dirs
   diagnostic_consumer
   dump_cfg
   frontend_action
+  frontend_action_2
   liveness_analysis
   #llvm_clang_usage
   preprocessor

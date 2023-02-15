@@ -69,8 +69,9 @@ cam::DeclarationMatcher getMatcher() {
 	  unless(isPartialSpecialization())).bind("c"))).bind("v");
 }
 
+static llvm::cl::OptionCategory optionCategory("Tool options");
+
 int main(int argc, const char **argv) {
-	static llvm::cl::OptionCategory optionCategory("Tool options");
 	auto expectedParser = ct::CommonOptionsParser::create(argc, argv,
 	  optionCategory);
 	if (!expectedParser) {
