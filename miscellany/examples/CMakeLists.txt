@@ -60,6 +60,7 @@ list(APPEND project_dirs
   #dump_tokens
   #test_ast_visitor_1
   template_10
+  attribute_2
 )
 
 message("cmake_args ${cmake_args}")

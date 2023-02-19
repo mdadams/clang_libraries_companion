@@ -61,6 +61,7 @@ list(APPEND project_dirs
   #llvm_clang_usage
   preprocessor
   template_1
+  attribute_1
 )
 
 message("cmake_args ${cmake_args}")
