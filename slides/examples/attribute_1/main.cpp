@@ -59,11 +59,6 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 	}
 }
 
-cam::DeclarationMatcher getMatcher() {
-	using namespace cam;
-	return namedDecl(has(attr())).bind("d");
-}
-
 int main(int argc, const char **argv) {
 	static llvm::cl::OptionCategory optionCategory("Tool options");
 	auto expectedParser = ct::CommonOptionsParser::create(argc, argv,
@@ -75,9 +70,9 @@ int main(int argc, const char **argv) {
 	ct::CommonOptionsParser& optionsParser = expectedParser.get();
 	ct::ClangTool tool(optionsParser.getCompilations(),
 	  optionsParser.getSourcePathList());
-	cam::DeclarationMatcher matcher = getMatcher();
 	MyMatchCallback matchCallback;
 	cam::MatchFinder matchFinder;
-	matchFinder.addMatcher(matcher, &matchCallback);
+	matchFinder.addMatcher(cam::namedDecl(cam::has(cam::attr())).bind("d"),
+	  &matchCallback);
 	return !tool.run(ct::newFrontendActionFactory(&matchFinder).get()) ? 0 : 1;
 }

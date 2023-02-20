@@ -62,6 +62,8 @@ list(APPEND project_dirs
   preprocessor
   template_1
   attribute_1
+  #ast_matcher_3
+  cast_1
 )
 
 message("cmake_args ${cmake_args}")
