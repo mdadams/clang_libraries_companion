@@ -32,6 +32,7 @@ if(CMAKE_C_COMPILER)
 	list(APPEND cmake_args "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
 endif()
 
+list(APPEND other_cmake_args "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 list(APPEND other_cmake_args "-DENABLE_ASAN=${ENABLE_ASAN}")
 list(APPEND other_cmake_args "-DENABLE_UBSAN=${ENABLE_UBSAN}")
 
@@ -61,6 +62,7 @@ list(APPEND project_dirs
   #test_ast_visitor_1
   template_10
   attribute_2
+  type_1
 )
 
 message("cmake_args ${cmake_args}")

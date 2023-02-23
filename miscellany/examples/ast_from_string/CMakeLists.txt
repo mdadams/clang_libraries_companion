@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(program LANGUAGES CXX C)
+project(ast_from_string LANGUAGES CXX C)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
@@ -28,13 +28,13 @@ cl_get_clang_libs(clang_libs)
 # errors caused by undefined references related to typeinfo).
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
-add_executable(program)
-list(APPEND all_targets program)
-target_sources(program PRIVATE main.cpp)
-target_link_libraries(program PRIVATE ${llvm_libs} ${clang_libs}
+add_executable(ast_from_string)
+list(APPEND all_targets ast_from_string)
+target_sources(ast_from_string PRIVATE main.cpp)
+target_link_libraries(ast_from_string PRIVATE ${llvm_libs} ${clang_libs}
   Boost::filesystem)
-target_include_directories(program PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(program PRIVATE ${LLVM_DEFINITIONS})
+target_include_directories(ast_from_string PRIVATE ${LLVM_INCLUDE_DIRS})
+target_compile_definitions(ast_from_string PRIVATE ${LLVM_DEFINITIONS})
 
 configure_file("${CMAKE_SOURCE_DIR}/demo"
   "${CMAKE_BINARY_DIR}/demo" @ONLY)

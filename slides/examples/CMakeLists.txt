@@ -9,7 +9,7 @@ option(ENABLE_UBSAN "Enable UBSan" TRUE)
 #set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 include(ExternalProject)
-include(FetchContent)
+#include(FetchContent)
 
 ################################################################################
 
@@ -30,6 +30,8 @@ endif()
 if(CMAKE_C_COMPILER)
 	list(APPEND cmake_args "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}")
 endif()
+
+list(APPEND other_cmake_args "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 list(APPEND other_cmake_args "-DENABLE_ASAN=${ENABLE_ASAN}")
 list(APPEND other_cmake_args "-DENABLE_UBSAN=${ENABLE_UBSAN}")
 

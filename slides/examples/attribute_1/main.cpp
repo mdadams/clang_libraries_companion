@@ -20,10 +20,10 @@ std::string locationToString(const clang::SourceManager& sourceManager,
 }
 
 std::string declTypeToString(const clang::Decl* decl) {
-	if (llvm::dyn_cast<clang::FunctionDecl>(decl)) {return "function";}
-	else if (llvm::dyn_cast<clang::VarDecl>(decl)) {return "variable";}
-	else if (llvm::dyn_cast<clang::FieldDecl>(decl)) {return "field";}
-	else if (llvm::dyn_cast<clang::CXXRecordDecl>(decl)) {return "class";}
+	if (llvm::isa<clang::FunctionDecl>(decl)) {return "function";}
+	else if (llvm::isa<clang::VarDecl>(decl)) {return "variable";}
+	else if (llvm::isa<clang::FieldDecl>(decl)) {return "field";}
+	else if (llvm::isa<clang::CXXRecordDecl>(decl)) {return "class";}
 	else {return "other";}
 }
 

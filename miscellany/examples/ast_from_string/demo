@@ -26,7 +26,7 @@ run_clang_tool="$source_dir/run_clang_tool"
 
 ################################################################################
 
-program="$build_dir/program"
+program="$build_dir/ast_from_string"
 
 # NOTE: This program should not be invoked via the run_clang_tool script, as
 # this program does not use the standard Clang-libtooling command-line

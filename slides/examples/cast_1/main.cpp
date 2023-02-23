@@ -18,11 +18,11 @@ std::string locationToString(const clang::SourceManager& sourceManager,
 }
 
 std::string getCastName(const clang::ExplicitCastExpr* castExpr) {
-	if (llvm::dyn_cast<clang::CStyleCastExpr>(castExpr)) {
+	if (llvm::isa<clang::CStyleCastExpr>(castExpr)) {
 		return "C-style-cast";
-	} else if (llvm::dyn_cast<clang::CXXFunctionalCastExpr>(castExpr)) {
+	} else if (llvm::isa<clang::CXXFunctionalCastExpr>(castExpr)) {
 		return "functional-cast";
-	} else if (llvm::dyn_cast<clang::BuiltinBitCastExpr>(castExpr)) {
+	} else if (llvm::isa<clang::BuiltinBitCastExpr>(castExpr)) {
 		return "bit-cast";
 	} else if (auto namedCastExpr =
 	  llvm::dyn_cast<clang::CXXNamedCastExpr>(castExpr)) {
