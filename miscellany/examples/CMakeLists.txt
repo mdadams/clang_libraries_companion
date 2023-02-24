@@ -63,6 +63,7 @@ list(APPEND project_dirs
   template_10
   attribute_2
   type_1
+  test_ast_matcher_0
 )
 
 message("cmake_args ${cmake_args}")

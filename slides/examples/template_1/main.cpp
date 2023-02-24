@@ -10,11 +10,9 @@
 namespace ct = clang::tooling;
 namespace cam = clang::ast_matchers;
 
-std::vector<std::string> getPackTypeNames(const clang::TemplateArgument& arg) {
+std::vector<std::string> getPackTypeNames(const clang::TemplateArgument& arg,
+  clang::PrintingPolicy pp) {
 	std::vector<std::string> names;
-	clang::PrintingPolicy pp{clang::LangOptions()};
-	pp.SuppressTagKeyword = true;
-	pp.FullyQualifiedName = true;
 	for (auto packIter = arg.pack_begin(); packIter != arg.pack_end();
 	  ++packIter) {
 		names.push_back({});
@@ -34,8 +32,6 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 	  result.Nodes.getNodeAs<clang::ClassTemplateSpecializationDecl>("c");
 	auto varDecl = result.Nodes.getNodeAs<clang::VarDecl>("v");
 	assert(tempDecl && varDecl);
-	clang::SourceRange sourceRange;
-	bool nonparm = (llvm::dyn_cast<clang::ParmVarDecl>(varDecl) == nullptr);
 	const clang::TemplateArgumentList& args = tempDecl->getTemplateArgs();
 	if (args.size() != 1) {
 		llvm::errs() << "tuple does not have one template parameter\n";
@@ -46,8 +42,8 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 		llvm::errs() << "tuple template parameter is not a pack\n";
 		return;
 	}
-	std::vector<std::string> names = getPackTypeNames(arg);
-	clang::SourceLocation loc = varDecl->getLocation();
+	clang::PrintingPolicy pp(result.Context->getLangOpts());
+	std::vector<std::string> names = getPackTypeNames(arg, pp);
 	assert(tempDecl->getQualifiedNameAsString() == "std::tuple");
 	llvm::outs() << std::format(
 	  "variable {} of type {} with {} template arguments\n",
@@ -57,10 +53,10 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 }
 
 AST_MATCHER(clang::ClassTemplateSpecializationDecl, isPartialSpecialization)
-  {return llvm::dyn_cast<clang::ClassTemplatePartialSpecializationDecl>(&Node);}
+  {return llvm::isa<clang::ClassTemplatePartialSpecializationDecl>(&Node);}
 
 AST_MATCHER(clang::VarDecl, isParmDecl)
-  {return llvm::dyn_cast<clang::ParmVarDecl>(&Node);}
+  {return llvm::isa<clang::ParmVarDecl>(&Node);}
 
 cam::DeclarationMatcher getMatcher() {
 	using namespace cam;
