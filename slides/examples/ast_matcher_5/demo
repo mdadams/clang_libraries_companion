@@ -1,0 +1,74 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+	EOF
+	exit 2
+}
+
+program="$build_dir/tool"
+default_matchers=(0 1 2)
+
+matchers=()
+
+while getopts vm: option; do
+	case "$option" in
+	m)
+		matchers+=("$OPTARG");;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files+=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir/example_1.cpp")
+fi
+if [ "${#matchers[@]}" -eq 0 ]; then
+	matchers=("${default_matchers[@]}")
+fi
+
+options+=(-p "$build_dir")
+for matcher in "${matchers[@]}"; do
+	options+=(-m "$matcher")
+done
+
+for source_file in "${source_files[@]}"; do
+	echo "SOURCE FILE: $source_file"
+	python -c 'print("*" * 40)'
+	run_command \
+	  "$run_clang_tool" "$program" "${options[@]}" "$source_file" || \
+	  panic "tool failed"
+	python -c 'print("*" * 40)'
+done
