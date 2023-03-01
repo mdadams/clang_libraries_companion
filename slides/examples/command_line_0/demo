@@ -1,0 +1,43 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+print_separator()
+{
+	python -c 'print("*" * 80)'
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+#run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+app="$build_dir/app"
+
+run_program_with_args()
+{
+	echo "RUNNING: $app $*"
+	"$app" "$@" || panic "program failed"
+}
+
+run_program_with_args --help
+print_separator
+run_program_with_args -log-file logfile.txt
+print_separator
+run_program_with_args -verbose
+print_separator
+run_program_with_args -v 1 -v 2 -v 4 -v 8
+print_separator
+run_program_with_args -debug-level 100
+print_separator

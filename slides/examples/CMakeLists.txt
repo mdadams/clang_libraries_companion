@@ -68,6 +68,7 @@ list(APPEND project_dirs
   cast_1
   ast_matcher_4
   ast_matcher_5
+  command_line_0
 )
 
 message("cmake_args ${cmake_args}")
