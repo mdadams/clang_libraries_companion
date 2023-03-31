@@ -64,7 +64,7 @@ list(APPEND project_dirs
   preprocessor
   template_1
   attribute_1
-  #ast_matcher_3
+  ast_matcher_3
   cast_1
   ast_matcher_4
   ast_matcher_5

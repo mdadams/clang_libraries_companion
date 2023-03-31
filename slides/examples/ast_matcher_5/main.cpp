@@ -27,6 +27,22 @@ cam::dynamic::VariantMatcher getMatcher(int id) {
 	}
 }
 
+cam::dynamic::VariantMatcher traverse(clang::TraversalKind kind,
+  cam::dynamic::VariantMatcher matcher) {
+	using namespace cam;
+	if (matcher.hasTypedMatcher<clang::Decl>()) {
+		return dynamic::VariantMatcher::SingleMatcher(traverse(kind,
+		  matcher.getTypedMatcher<clang::Decl>()));
+	} else if (matcher.hasTypedMatcher<clang::Stmt>()) {
+		return dynamic::VariantMatcher::SingleMatcher(traverse(kind,
+		  matcher.getTypedMatcher<clang::Stmt>()));
+	} else if (matcher.hasTypedMatcher<clang::QualType>()) {
+		return dynamic::VariantMatcher::SingleMatcher(traverse(kind,
+		  matcher.getTypedMatcher<clang::QualType>()));
+	} else {std::abort();}
+	return matcher;
+}
+
 struct MyMatchCallback : public cam::MatchFinder::MatchCallback {
 	MyMatchCallback() : count(0) {}
 	void run(const cam::MatchFinder::MatchResult& result) override;
@@ -56,6 +72,8 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 static lc::OptionCategory optionCategory("Tool options");
 static lc::list<int> clMatcherIds("m", lc::desc("Matcher ID"),
   lc::cat(optionCategory), lc::ZeroOrMore);
+static lc::opt<bool> clAsIs("i", lc::desc("Implicit nodes"),
+  lc::cat(optionCategory));
 
 int main(int argc, const char **argv) {
 	auto optParser = ct::CommonOptionsParser::create(argc, argv,
@@ -69,8 +87,9 @@ int main(int argc, const char **argv) {
 	MyMatchCallback matchCallback;
 	cam::MatchFinder matchFinder;
 	for (auto id : clMatcherIds) {
-		matchFinder.addDynamicMatcher(*getMatcher(id).getSingleMatcher(),
-		  &matchCallback);
+		matchFinder.addDynamicMatcher(*traverse(
+		  clAsIs ? clang::TK_AsIs : clang::TK_IgnoreUnlessSpelledInSource,
+		  getMatcher(id)).getSingleMatcher(), &matchCallback);
 	}
 	int status = tool.run(ct::newFrontendActionFactory(&matchFinder).get());
 	llvm::outs() << std::format("number of matches: {}\n",

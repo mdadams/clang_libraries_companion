@@ -36,17 +36,13 @@ usage()
 }
 
 program="$build_dir/tool"
-default_matchers=(0 1 2)
 
 matchers=()
-implicit=0
 
-while getopts vm:i option; do
+while getopts vm: option; do
 	case "$option" in
 	m)
 		matchers+=("$OPTARG");;
-	i)
-		implicit=1;;
 	*)
 		usage;;
 	esac
@@ -56,16 +52,10 @@ shift $((OPTIND - 1))
 source_files+=("$@")
 
 if [ "${#source_files[@]}" -eq 0 ]; then
-	source_files+=("$data_dir/example_1.cpp")
-fi
-if [ "${#matchers[@]}" -eq 0 ]; then
-	matchers=("${default_matchers[@]}")
+	source_files+=("$data_dir/example_2.cpp")
 fi
 
 options+=(-p "$build_dir")
-if [ "$implicit" -ne 0 ]; then
-	options+=(-i)
-fi
 for matcher in "${matchers[@]}"; do
 	options+=(-m "$matcher")
 done

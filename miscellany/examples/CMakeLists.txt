@@ -61,9 +61,13 @@ list(APPEND project_dirs
   #dump_tokens
   #test_ast_visitor_1
   template_10
+  template_11
   attribute_2
   type_1
   test_ast_matcher_0
+  dump_type
+  lib_use_analyzer
+  mangle_1
 )
 
 message("cmake_args ${cmake_args}")

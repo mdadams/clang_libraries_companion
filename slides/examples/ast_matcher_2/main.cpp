@@ -96,8 +96,8 @@ int main(int argc, const char **argv) {
 	  optionsParser.getSourcePathList());
 	cam::DeclarationMatcher matcher = getMatcher(clMatcherId);
 	if (!clAllNodes) {
-		matcher = clang::ast_matchers::traverse(
-		  clang::TK_IgnoreUnlessSpelledInSource, matcher);
+		matcher = cam::traverse(clang::TK_IgnoreUnlessSpelledInSource,
+		  matcher);
 	}
 	MyMatchCallback matchCallback;
 	cam::MatchFinder matchFinder;
