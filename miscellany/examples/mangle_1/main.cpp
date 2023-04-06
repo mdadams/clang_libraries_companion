@@ -1,5 +1,10 @@
+/****************************************************************************\
+* Includes
+\****************************************************************************/
+
 #include <format>
 #include <string>
+
 #include "clang/AST/Mangle.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
@@ -11,18 +16,73 @@
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/Support/CommandLine.h"
 
+/****************************************************************************\
+\****************************************************************************/
+
 namespace ct = clang::tooling;
 namespace cam = clang::ast_matchers;
 namespace lc = llvm::cl;
 
-static lc::OptionCategory optionCategory("Tool options");
-static lc::list<int> clMatcherIds("m", lc::desc("Matcher ID"),
-  lc::cat(optionCategory), lc::ZeroOrMore);
-static lc::opt<bool> clVerbose("v", lc::desc("Matcher ID"),
-  lc::cat(optionCategory), lc::ZeroOrMore);
-static const std::vector<int> defaultMatcherIds{0, 1, 2};
+enum class MatcherId {
+	Type,
+	Var,
+	Func,
+	Ctor,
+	Dtor,
+};
+
+std::string matcherIdToName(MatcherId id) {
+	std::map<MatcherId, std::string> lut{
+		{MatcherId::Type, "type"},
+		{MatcherId::Var, "var"},
+		{MatcherId::Func, "func"},
+		{MatcherId::Ctor, "ctor"},
+		{MatcherId::Dtor, "dtor"},
+	};
+	auto i = lut.find(id);
+	return i != lut.end() ? i->second : "";
+}
 
 /****************************************************************************\
+* Command-Line Processing
+\****************************************************************************/
+
+static const std::vector<MatcherId> defaultMatcherIds{
+	MatcherId::Type,
+	MatcherId::Var,
+	MatcherId::Func,
+};
+
+static int clVerbosityLevel = 0;
+
+static lc::OptionCategory optionCategory("Tool options");
+
+static lc::list<MatcherId> clMatcherIds(
+  "m",
+  lc::desc("Enable matcher"),
+  lc::values(
+    clEnumValN(MatcherId::Type, "type", "type"),
+    clEnumValN(MatcherId::Func, "func", "function"),
+    clEnumValN(MatcherId::Var, "var", "variable"),
+    clEnumValN(MatcherId::Ctor, "ctor", "constructor"),
+    clEnumValN(MatcherId::Dtor, "dtor", "destructor")
+  ),
+  lc::cat(optionCategory),
+  lc::ZeroOrMore
+);
+
+static lc::opt<bool> clVerbose(
+  "v",
+  lc::desc("Increase verbosity level"),
+  lc::cat(optionCategory),
+  lc::ZeroOrMore,
+  lc::callback([](const bool&){
+	  ++clVerbosityLevel;
+  })
+);
+
+/****************************************************************************\
+* Source-Manager Related Code.
 \****************************************************************************/
 
 std::pair<std::string, bool> getSourceText(const clang::ASTContext&
@@ -50,6 +110,7 @@ std::string expLocToString(const clang::SourceManager& sourceManager,
 }
 
 /****************************************************************************\
+* Name Mangling
 \****************************************************************************/
 
 std::string getMangledName(clang::MangleContext& mangleContext,
@@ -72,6 +133,7 @@ std::string getMangledName(clang::MangleContext& mangleContext,
 }
 
 /****************************************************************************\
+* Name Demangling
 \****************************************************************************/
 
 std::string getDemangledName(const std::string& mangledName)
@@ -139,25 +201,26 @@ std::string demanglerGetFunctionReturnType(llvm::ItaniumPartialDemangler&
 }
 
 /****************************************************************************\
+* Matching Infrastructure
 \****************************************************************************/
 
-cam::dynamic::VariantMatcher getMatcher(int id)
+cam::dynamic::VariantMatcher getMatcher(MatcherId id)
 {
 	using namespace cam;
 	switch (id) {
 	default:
-	case 0:
+	case MatcherId::Type:
 		return dynamic::VariantMatcher::SingleMatcher(
 		  qualType().bind("type"));
-	case 1:
+	case MatcherId::Var:
 		return dynamic::VariantMatcher::SingleMatcher(varDecl().bind("var"));
-	case 2:
+	case MatcherId::Func:
 		return dynamic::VariantMatcher::SingleMatcher(
 		  functionDecl().bind("func"));
-	case 3:
+	case MatcherId::Ctor:
 		return dynamic::VariantMatcher::SingleMatcher(
 		  cxxConstructorDecl().bind("func"));
-	case 4:
+	case MatcherId::Dtor:
 		return dynamic::VariantMatcher::SingleMatcher(
 		  cxxDestructorDecl().bind("func"));
 	}
@@ -181,6 +244,9 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result)
 	std::string name;
 	std::string mangledName;
 	clang::SourceRange sourceRange;
+	bool shouldMangle = true;
+	std::string dumpOutput;
+	llvm::raw_string_ostream dumpStream(dumpOutput);
 
 	if (auto qualTypePtr = result.Nodes.getNodeAs<clang::QualType>("type")) {
 		if (!qualTypePtr->isNull() && !(*qualTypePtr)->isDependentType()) {
@@ -192,6 +258,8 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result)
 	  result.Nodes.getNodeAs<clang::FunctionDecl>("func")) {
 		sourceRange = funcDecl->getSourceRange();
 		name = funcDecl->getQualifiedNameAsString();
+		shouldMangle = mangleContext->shouldMangleDeclName(funcDecl);
+		funcDecl->dump(dumpStream);
 		if (auto ctorDecl =
 		  llvm::dyn_cast<clang::CXXConstructorDecl>(funcDecl)) {
 			type = "constructor\n";
@@ -212,22 +280,29 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result)
 	  result.Nodes.getNodeAs<clang::VarDecl>("var")) {
 		type = "variable";
 		name = varDecl->getQualifiedNameAsString();
+		varDecl->dump(dumpStream);
 		sourceRange = varDecl->getSourceRange();
 		if (!varDecl->isLocalVarDeclOrParm()) {
+			shouldMangle = mangleContext->shouldMangleDeclName(varDecl);
 			mangledName = getMangledName(*mangleContext, varDecl);
+		} else {
+			shouldMangle = false;
 		}
 	} else {
 		return;
 	}
 
-	if (!clVerbose && mangledName.empty()) {
+	if (!(clVerbosityLevel >= 1) && mangledName.empty()) {
 		return;
 	}
-	llvm::outs() << std::format("MATCH {}: {} {} {}\n", count, type,
-	  !name.empty() ? name : "(null)",
+	llvm::outs() << std::format("MATCH {}: {} {} {} {}\n", count, type,
+	  !name.empty() ? name : "(null)", shouldMangle,
 	  !mangledName.empty() ? mangledName : "(null)");
 	auto [sourceText, sourceTextValid] = getSourceText(astContext,
 	  sourceRange, nullptr);
+	if (clVerbosityLevel >= 2) {
+		llvm::outs() << dumpOutput;
+	}
 	if (sourceTextValid) {
 		llvm::outs() << std::format("{}\n{}\n",
 		  expLocToString(sourceManager, sourceRange.getBegin()), sourceText);
@@ -279,6 +354,10 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result)
 	}
 }
 
+/****************************************************************************\
+* Main
+\****************************************************************************/
+
 int main(int argc, const char **argv)
 {
 	auto optParser = ct::CommonOptionsParser::create(argc, argv,
@@ -287,13 +366,21 @@ int main(int argc, const char **argv)
 		llvm::errs() << llvm::toString(optParser.takeError());
 		return 1;
 	}
+	if (clVerbosityLevel >= 1) {
+		llvm::outs() << std::format("verbosity level: {}\n",
+		  clVerbosityLevel);
+	}
 	ct::ClangTool tool(optParser->getCompilations(),
 	  optParser->getSourcePathList());
 	MyMatchCallback matchCallback;
 	cam::MatchFinder matchFinder;
-	std::vector<int> matcherIds(!clMatcherIds.empty() ? clMatcherIds :
+	std::vector<MatcherId> matcherIds(!clMatcherIds.empty() ? clMatcherIds :
 	  defaultMatcherIds);
 	for (auto id : matcherIds) {
+		if (clVerbosityLevel >= 1) {
+			llvm::outs() << std::format("enabling matcher {}\n",
+			  matcherIdToName(id));
+		}
 		matchFinder.addDynamicMatcher(*getMatcher(id).getSingleMatcher(),
 		  &matchCallback);
 	}

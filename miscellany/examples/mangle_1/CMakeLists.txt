@@ -45,6 +45,8 @@ target_compile_definitions(tool PRIVATE ${LLVM_DEFINITIONS})
 set(test_sources
 	data/example_1.cpp
 	data/example_2.cpp
+	data/example_3.cpp
+	data/example_3.c
 )
 add_library(dummy EXCLUDE_FROM_ALL ${test_sources})
 
