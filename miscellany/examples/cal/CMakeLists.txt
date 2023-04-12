@@ -38,7 +38,8 @@ cl_get_clang_libs(clang_libs)
 # errors caused by undefined references related to typeinfo).
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
-add_subdirectory(src)
+add_subdirectory(src/lib)
+#add_subdirectory(src/app)
 
 #set(CAL_CONFIG_DIR
 #  "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/CAL")

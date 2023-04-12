@@ -1,6 +1,7 @@
 #include <format>
 #include <string>
 #include <vector>
+#include <iostream>
 #include <boost/process.hpp>
 #include <boost/process/search_path.hpp>
 #include "cal/main.hpp"
@@ -110,12 +111,17 @@ std::string getClangVersion(const std::string& pathname) {
 	std::string line;
 	bool okay = true;
 	while (proc.running() && std::getline(is, line) && !line.empty()) {
-		if (!(ss << line)) {
+		ss << line << '\n';
+		if (!ss) {
 			okay = false;
 			break;
 		}
 	}
 	proc.wait();
+	int exitStatus = proc.exit_code();
+	if (exitStatus) {
+		return "";
+	}
 	std::string version;
 	std::string dummy;
 	ss >> dummy >> dummy >> version;

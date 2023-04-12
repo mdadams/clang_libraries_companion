@@ -35,6 +35,12 @@ void log(std::string_view fmt, Args&&... args) {
 
 std::string addLineNumbers(const std::string& source, unsigned int startLineNo,
   unsigned int startColNo, bool lineHeader, bool columnHeader);
+
 std::string getClangIncludeDirPathName();
 
-}
+#if defined(CAL_INTERNAL)
+std::string getClangVersion(const std::string& pathname);
+std::string getClangProgramPath();
+#endif
+
+} // namespace cal
