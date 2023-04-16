@@ -1,6 +1,8 @@
 #include <cal/main.hpp>
 #include <iostream>
 #include <format>
+#include <cassert>
+#include <cstdlib>
 
 int main(int argc, char** argv)
 {
@@ -15,4 +17,6 @@ int main(int argc, char** argv)
 	std::string clangIncDir = cal::getClangIncludeDirPathName();
 	std::cout << std::format("clang include dir: {}\n",
 	  clangIncDir);
+	if (clangIncDir.empty()) {std::abort();}
+	assert(!clangIncDir.empty());
 }

@@ -4,6 +4,8 @@ set(CAL_VERSION 0.0.1)
 
 project(cal LANGUAGES CXX C VERSION ${CAL_VERSION})
 
+option(CAL_ENABLE_TEST "Enable test code" TRUE)
+
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
@@ -25,6 +27,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 find_package(LLVM REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(Fmt)
 if(TARGET Fmt::Fmt)
@@ -39,7 +43,9 @@ cl_get_clang_libs(clang_libs)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 
 add_subdirectory(src/lib)
-#add_subdirectory(src/app)
+if(CAL_ENABLE_TEST)
+	add_subdirectory(src/app)
+endif()
 
 #set(CAL_CONFIG_DIR
 #  "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/CAL")

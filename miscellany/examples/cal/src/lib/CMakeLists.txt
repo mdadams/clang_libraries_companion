@@ -6,9 +6,7 @@ set(sources
   utility.cpp
 )
 
-add_library(cal)
-target_sources(cal PRIVATE ${sources})
-target_sources(cal PUBLIC "${headers}")
+add_library(cal ${headers} ${sources})
 target_compile_definitions(cal PRIVATE ${LLVM_DEFINITIONS})
 target_include_directories(cal BEFORE PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/include"

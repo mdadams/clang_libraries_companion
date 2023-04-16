@@ -97,7 +97,8 @@ std::string addLineNumbers(const std::string& text, unsigned int startLineNo,
 }
 
 std::string getClangProgramPath() {
-	auto path = boost::process::search_path(boost::filesystem::path("clang++"));
+	auto path = boost::process::search_path(
+	  boost::filesystem::path("clang++"));
 	return path.string();
 }
 
@@ -110,7 +111,7 @@ std::string getClangVersion(const std::string& pathname) {
 	std::stringstream ss;
 	std::string line;
 	bool okay = true;
-	while (proc.running() && std::getline(is, line) && !line.empty()) {
+	while (std::getline(is, line) && !line.empty()) {
 		ss << line << '\n';
 		if (!ss) {
 			okay = false;
@@ -120,12 +121,22 @@ std::string getClangVersion(const std::string& pathname) {
 	proc.wait();
 	int exitStatus = proc.exit_code();
 	if (exitStatus) {
+#if defined(CAL_DEBUG)
+		std::cerr << std::format("clang exit status {}\n", exitStatus);
+#endif
 		return "";
 	}
 	std::string version;
 	std::string dummy;
+#if defined(CAL_DEBUG)
+	std::string buffer = ss.str();
+#endif
 	ss >> dummy >> dummy >> version;
 	if (!ss) {
+#if defined(CAL_DEBUG)
+		std::cerr << "stream in failed state\n";
+		std::cerr << std::format("stringstream: {}\n", buffer);
+#endif
 		version = "";
 	}
 	return version;
@@ -137,8 +148,17 @@ std::string getClangIncludeDirPathName() {
 		"lib",
 	};
 	bf::path clangProgramPath = getClangProgramPath();
+	if (clangProgramPath.empty()) {
+#if defined(CAL_DEBUG)
+		std::cerr << "getClangProgramPath failed\n";
+#endif
+		return "";
+	}
 	std::string clangVersion = getClangVersion(clangProgramPath.string());
-	if (clangProgramPath.empty() || clangVersion.empty()) {
+	if (clangVersion.empty()) {
+#if defined(CAL_DEBUG)
+		std::cerr << "getClangVersion failed\n";
+#endif
 		return "";
 	}
 	bf::path prefix = clangProgramPath.parent_path().parent_path();
@@ -154,6 +174,12 @@ std::string getClangIncludeDirPathName() {
 			break;
 		}
 	}
+	if (!found) {
+#if defined(CAL_DEBUG)
+		std::cerr << "getClangIncludeDirPathName failed: search failed\n";
+#endif
+	}
+	assert(!path.string().empty());
 	return found ? path.string() : "";
 }
 
