@@ -76,11 +76,14 @@ The code examples have the following software dependencies:
 
 These dependencies must be installed prior to building the code examples.
 
-If the C++ standard library does not support std::format, a customized
-version of the fmt library can be automatically installed (as part of the
-build process) to provide this support.  The C++ standard library included
-with version 13 and above of GCC has support for std::format.  (As of
-the time of this writing, however, GCC 13 is still under development.)
+If the C++ standard library does not support std::format, a custom version
+of the fmt library can be automatically installed (as part of the build
+process) to provide this support.  (This custom version of the fmt library
+provides a standard library header called "format" and places a few key
+declarations in the std namespace in that header.)  The C++ standard
+library included with version 13 and above of GCC has support for
+std::format.  (As of the time of this writing, however, GCC 13 is still
+under development.)
 
 Building the Software
 ---------------------
@@ -92,7 +95,7 @@ examples in one step.
 
 Some of the code examples require std::format (introduced in C++20).
 If the C++ standard library implementation being used does not support
-std::format, a customized version of the fmt library can be automatically
+std::format, a custom version of the fmt library can be automatically
 installed (as part of the build process) to provide this support.
 
 To build all of the code examples (and optionally run all of the associated
@@ -139,8 +142,8 @@ working tree of the cloned Git repository.
 
    If the C++ standard library being used happens to support std::format, the
    "--no-fmt" option can be added to the invocation of the build script above
-   (so that the fmt library is not used).  That is, the following command
-   can be used:
+   (so that the custom version of the fmt library is not used).  That is,
+   the following command can be used:
 
        ./build --defaults --no-fmt
 
