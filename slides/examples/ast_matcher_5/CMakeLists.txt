@@ -30,15 +30,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
 list(APPEND all_targets tool)
 add_executable(tool)
 target_sources(tool PRIVATE main.cpp)
-target_link_libraries(tool PRIVATE ${llvm_libs} ${clang_libs}
-  clangAST
-  clangASTMatchers
-  clangBasic
-  clangDynamicASTMatchers
-  clangFrontend
-  clangTooling
-  clangSerialization
-)
+target_link_libraries(tool PRIVATE ${llvm_libs} ${clang_libs})
 target_include_directories(tool PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(tool PRIVATE ${LLVM_DEFINITIONS})
 

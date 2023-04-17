@@ -13,10 +13,7 @@ target_include_directories(cal BEFORE PRIVATE
   "${CMAKE_CURRENT_BINARY_DIR}/include"
   ${LLVM_INCLUDE_DIRS}
 )
-target_link_libraries(cal PRIVATE ${llvm_libs} clangTooling
-  libclang Boost::filesystem)
-target_link_libraries(cal PRIVATE
-  ${llvm_libs} ${clang_libs})
+target_link_libraries(cal PRIVATE ${llvm_libs} ${clang_libs} Boost::filesystem)
 
 install(TARGETS cal
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
