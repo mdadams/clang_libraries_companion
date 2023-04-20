@@ -18,8 +18,9 @@ get_dir()
 	case "$key" in
 	build)
 		result="$dir/tmp_build";;
-	install)
-		result="$top_dir/install";;
+	# NOTE: This should no longer be used.
+	#install)
+	#	result="$top_dir/install";;
 	*)
 		return 1;;
 	esac
@@ -156,6 +157,7 @@ cxx_compiler="$CXX"
 use_fmtlib=0
 do_clean=0
 do_build=0
+do_install=0
 do_demo=0
 enable_extras=
 verbose=0
@@ -211,6 +213,10 @@ while [ $# -gt 0 ]; do
 		shift 1
 		do_clean=0
 		;;
+	--very-clean)
+		shift 1
+		do_clean=2
+		;;
 	--clean|-c)
 		shift 1
 		do_clean=1
@@ -261,6 +267,10 @@ while [ $# -gt 0 ]; do
 		shift 1
 		build_type=Debug
 		;;
+	--relwithdebinfo)
+		shift 1
+		build_type=RelWithDebInfo
+		;;
 	--release)
 		shift 1
 		build_type=Release
@@ -303,6 +313,12 @@ while [ $# -gt 0 ]; do
 		software_dirs+=("$1")
 		shift 1
 		;;
+	--install-dir)
+		shift 1
+		[ $# -gt 0 ] || usage "missing argument"
+		install_dir="$1"
+		shift 1
+		;;
 	-0)
 		shift 1
 		stop_after_fmtlib=1
@@ -331,6 +347,10 @@ fi
 
 if [ "${#software_dirs[@]}" -eq 0 ]; then
 	usage "slides software directory not specified"
+fi
+
+if [ "$do_build" -ne 0 ]; then
+	do_install=1
 fi
 
 ################################################################################
@@ -386,7 +406,7 @@ base_cmake_build_options=(
 #
 ################################################################################
 
-if [ "$do_clean" -ne 0 ]; then
+if [ "$do_clean" -ge 2 ]; then
 	command=(rm -rf "$install_dir")
 	echo "RUNNING: ${command[*]}"
 	if [ "$print_only" -eq 0 ]; then
@@ -399,7 +419,7 @@ fi
 #
 ################################################################################
 
-if [ "$do_clean" -ne 0 ]; then
+if [ "$do_clean" -ge 1 ]; then
 	command=(rm -rf "$fmt_build_dir")
 	echo "RUNNING: ${command[*]}"
 	if [ "$print_only" -eq 0 ]; then
@@ -430,7 +450,7 @@ for work_dir in "${software_dirs[@]}"; do
 	build_dir="$(get_dir "$source_dir" build)" || \
 	  panic "cannot get directory name"
 
-	if [ "$do_clean" -ne 0 ]; then
+	if [ "$do_clean" -ge 1 ]; then
 		command=(rm -rf "$build_dir")
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
@@ -463,8 +483,12 @@ for work_dir in "${software_dirs[@]}"; do
 			cmake_configure_options+=(-DUSE_FMTLIB="$use_fmtlib")
 		fi
 
-		command=(env "${cmake_env[@]}"
-		  cmake -H"$source_dir" -B"$build_dir" "${cmake_configure_options[@]}")
+		command=(
+			env "${cmake_env[@]}"
+			cmake -H"$source_dir"
+			-B"$build_dir"
+			"${cmake_configure_options[@]}"
+		)
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
 			"${command[@]}" || \
@@ -473,14 +497,47 @@ for work_dir in "${software_dirs[@]}"; do
 
 		cmake_build_options=("${base_cmake_build_options[@]}")
 
-		command=(env "${cmake_env[@]}"
-		  cmake --build "$build_dir" "${cmake_build_options[@]}")
+		command=(
+			env "${cmake_env[@]}"
+			cmake --build "$build_dir" "${cmake_build_options[@]}"
+		)
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
 			"${command[@]}" || \
 			  panic "cmake build failed"
 		fi
 
+	fi
+
+done
+
+################################################################################
+# Install
+################################################################################
+
+for work_dir in "${software_dirs[@]}"; do
+
+	source_dir="$work_dir"
+	build_dir="$(get_dir "$source_dir" build)" || \
+	  panic "cannot get directory name"
+
+	if [ "$do_install" -ne 0 ]; then
+
+		cmake_build_options=("${base_cmake_build_options[@]}")
+
+		command=(
+			env
+			"${cmake_env[@]}"
+			cmake
+			--build "$build_dir"
+			--target install-subprojects
+			"${cmake_build_options[@]}"
+		)
+		echo "RUNNING: ${command[*]}"
+		if [ "$print_only" -eq 0 ]; then
+			"${command[@]}" || \
+			  panic "cmake build failed"
+		fi
 	fi
 
 done
@@ -504,8 +561,14 @@ for work_dir in "${software_dirs[@]}"; do
 		cmake_build_options=(
 			--parallel "$num_jobs"
 		)
-		command=(env "${cmake_env[@]}" "${run_env[@]}"
-		  cmake --build "$build_dir" --target demo "${cmake_build_options[@]}")
+		command=(
+			env "${cmake_env[@]}"
+			"${run_env[@]}"
+			cmake
+			--build "$build_dir"
+			--target demo
+			"${cmake_build_options[@]}"
+		)
 		echo "RUNNING: ${command[*]}"
 		if [ "$print_only" -eq 0 ]; then
 			"${command[@]}" || \

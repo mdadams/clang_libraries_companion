@@ -71,13 +71,18 @@ list(APPEND project_dirs
   command_line_0
 )
 
+list(APPEND installable_project_dirs
+)
+
 message("cmake_args ${cmake_args}")
 
 add_custom_target(configure)
 add_custom_target(build)
 add_custom_target(demo)
+add_custom_target(install-subprojects)
 
 # Add each project as an external project.
+set(install_target_found FALSE)
 foreach(dir IN LISTS project_dirs)
 
 	# Skip the processing of the directory if it does not exist.
@@ -92,6 +97,24 @@ foreach(dir IN LISTS project_dirs)
 	string(REPLACE " " "_" target "${target}")
 	string(REPLACE "/" "__" target "${target}")
 
+	list(FIND installable_project_dirs ${dir} find_index)
+	if(NOT find_index EQUAL -1)
+		message("enabling install target for target ${target}")
+		set(has_install_target TRUE)
+	else()
+		message("disabling install target for target ${target}")
+		set(has_install_target FALSE)
+	endif()
+
+	if (has_install_target)
+		set(install_command
+		  ${CMAKE_COMMAND} --build <BINARY_DIR> --target install)
+		set(install_target_flag TRUE)
+	else()
+		set(install_command
+		  ${CMAKE_COMMAND} -E echo)
+	endif()
+
 	# Add external project.
 	ExternalProject_Add("${target}"
 	  SOURCE_DIR "${CMAKE_SOURCE_DIR}/${dir}"
@@ -99,7 +122,8 @@ foreach(dir IN LISTS project_dirs)
 	  INSTALL_DIR "${CMAKE_INSTALL_PREFIX}"
 	  STEP_TARGETS configure build install demo
 	  CMAKE_ARGS ${cmake_args} ${other_cmake_args}
-	  INSTALL_COMMAND ""
+	  INSTALL_COMMAND ${install_command}
+	  #INSTALL_COMMAND ""
 	  )
 	ExternalProject_Add_Step("${target}" demo
 	  ALWAYS TRUE
@@ -115,5 +139,8 @@ foreach(dir IN LISTS project_dirs)
 	add_dependencies(configure ${target}-configure)
 	add_dependencies(build ${target}-build)
 	add_dependencies(demo ${target}-demo)
+	if (has_install_target)
+		add_dependencies(install-subprojects ${target}-install)
+	endif()
 
 endforeach()
