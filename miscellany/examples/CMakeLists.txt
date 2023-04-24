@@ -36,6 +36,11 @@ list(APPEND other_cmake_args "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 list(APPEND other_cmake_args "-DENABLE_ASAN=${ENABLE_ASAN}")
 list(APPEND other_cmake_args "-DENABLE_UBSAN=${ENABLE_UBSAN}")
 
+add_custom_target(configure)
+add_custom_target(build)
+add_custom_target(demo)
+add_custom_target(install-subprojects)
+
 ################################################################################
 
 ExternalProject_Add(cal
@@ -45,6 +50,11 @@ ExternalProject_Add(cal
   STEP_TARGETS configure build install
   CMAKE_ARGS ${cmake_args} ${other_cmake_args}
   )
+
+add_dependencies(configure cal-configure)
+add_dependencies(build cal-build)
+add_dependencies(install-subprojects cal-install)
+#add_dependencies(demo cal-demo)
 
 ################################################################################
 
@@ -75,13 +85,6 @@ list(APPEND installable_project_dirs
   query_dependencies
 )
 
-#message("cmake_args ${cmake_args}")
-
-add_custom_target(configure)
-add_custom_target(build)
-add_custom_target(demo)
-add_custom_target(install-subprojects)
-
 # Add each project as an external project.
 foreach(dir IN LISTS project_dirs)
 
@@ -99,14 +102,12 @@ foreach(dir IN LISTS project_dirs)
 
 	list(FIND installable_project_dirs ${dir} find_index)
 	if(NOT find_index EQUAL -1)
-		message("enabling install target for target ${target}")
 		set(has_install_target TRUE)
 	else()
-		message("disabling install target for target ${target}")
 		set(has_install_target FALSE)
 	endif()
 
-	if (has_install_target)
+	if(has_install_target)
 		set(install_command
 		  ${CMAKE_COMMAND} --build <BINARY_DIR> --target install)
 		set(install_target_flag TRUE)
@@ -137,7 +138,7 @@ foreach(dir IN LISTS project_dirs)
 	add_dependencies(configure ${target}-configure)
 	add_dependencies(build ${target}-build)
 	add_dependencies(demo ${target}-demo)
-	if (has_install_target)
+	if(has_install_target)
 		add_dependencies(install-subprojects ${target}-install)
 	endif()
 	add_dependencies(${target}-configure cal-install)
