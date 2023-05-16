@@ -1,3 +1,4 @@
+#define CAL_INTERNAL // This line must precede any inclusion of CAL headers.
 #include <cal/main.hpp>
 #include <iostream>
 #include <format>

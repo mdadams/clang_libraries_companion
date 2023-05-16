@@ -1,7 +1,9 @@
 #include <format>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <iostream>
+#include <boost/filesystem.hpp>
+#include <boost/process/environment.hpp>
 #include <boost/process.hpp>
 #include <boost/process/search_path.hpp>
 #include "cal/main.hpp"
@@ -96,10 +98,33 @@ std::string addLineNumbers(const std::string& text, unsigned int startLineNo,
 	return result;
 }
 
+#define CAL_HANDLE_CCACHE
 std::string getClangProgramPath() {
+#if defined(CAL_HANDLE_CCACHE)
+	std::vector<bf::path> searchPath = boost::this_process::path();
+	auto clangPath = boost::process::search_path(bf::path("clang++"),
+	  searchPath);
+	if (clangPath.has_parent_path()) {
+		bf::path dirPath = clangPath.parent_path();
+		bf::path dirName = dirPath.filename();
+		if (dirName == "ccache") {
+			std::vector<bf::path> newSearchPath;
+			auto i = searchPath.begin();
+			for (auto i = searchPath.begin(); i != searchPath.end(); ++i) {
+				if (*i != dirPath) {
+					newSearchPath.push_back(*i);
+				}
+			}
+			clangPath = boost::process::search_path(bf::path("clang++"),
+			  newSearchPath);
+		}
+	}
+	return clangPath.string();
+#else
 	auto path = boost::process::search_path(
-	  boost::filesystem::path("clang++"));
+	  bf::path("clang++"));
 	return path.string();
+#endif
 }
 
 std::string getClangVersion(const std::string& pathname) {
