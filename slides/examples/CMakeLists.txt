@@ -69,6 +69,7 @@ list(APPEND project_dirs
   ast_matcher_4
   ast_matcher_5
   command_line_0
+  ast_matcher_6
 )
 
 list(APPEND installable_project_dirs
