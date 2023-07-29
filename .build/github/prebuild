@@ -24,6 +24,59 @@ list_directory()
     ls -l "${options[@]}" "$1" || return 1
 }
 
+print_settings()
+{
+	local gcc_path="$(type -P gcc)"
+	local gxx_path="$(type -P g++)"
+	local clang_path="$(type -P clang)"
+	local clangxx_path="$(type -P clang++)"
+	cat <<- EOF
+	PATH: $PATH
+	CC: $CC
+	CXX: $CXX
+
+	CPLUS_INCLUDE_PATH: $CPLUS_INCLUDE_PATH
+	C_INCLUDE_PATH: $C_INCLUDE_PATH
+	CPATH: $CPATH
+
+	gcc path: $gcc_path
+	$(ls -al $gcc_path)
+	gcc version:
+	----------
+	$($gcc_path --version)
+	----------
+
+	g++ path: $gxx_path
+	$(ls -al $gxx_path)
+	----------
+	g++ version: $($gxx_path --version)
+	----------
+
+	clang++ path: $clangxx_path
+	$(ls -al $clangxx_path)
+	----------
+	clang++ version: $($clangxx_path --version)
+	----------
+
+	clang path: $clang_path
+	$(ls -al $clang_path)
+	----------
+	clang version: $($clang_path --version)
+	----------
+
+	python path: $(type -P python)
+	python2 path: $(type -P python2)
+	python3 path: $(type -P python3)
+
+	SDK path: $(xcrun --show-sdk-path)
+	EOF
+}
+
+realpath()
+{
+	python -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+}
+
 ################################################################################
 
 usage()
@@ -32,11 +85,14 @@ usage()
 	exit 2
 }
 
+setup_file=
 verbose=0
 matrix_os=
 
-while getopts vs: option; do
+while getopts vs:c: option; do
 	case "$option" in
+	c)
+		setup_file="$OPTARG";;
 	v)
 		verbose=$((verbose + 1));;
 	s)
@@ -53,11 +109,23 @@ if [ "$verbose" -ge 2 ]; then
 	set -xv
 fi
 
+self_dir="$(dirname "$0")" || panic "dirname failed"
+self_dir="$(realpath "$self_dir")" || panic "realpath failed"
+tmp_dir=/tmp
+
 if [ -z "$matrix_os" ]; then
 	panic "GitHub Actions matrix OS not specified"
 fi
 
+clang_version=15.0.7
+clang_major_version=15
+gcc_major_version=12
+
+setup_lines=()
+
 echo "PREBUILD MATRIX OS: $matrix_os"
+
+print_settings
 
 case "$matrix_os" in
 
@@ -161,9 +229,42 @@ ubuntu-*)
 		fi
 	esac
 
+	setup_lines+=("export PATH='/usr/lib/llvm-$clang_major_version/bin:$PATH'")
+	setup_lines+=("export CMAKE_PREFIX_PATH='/usr/lib/llvm-$clang_major_version/lib/cmake/llvm:$CMAKE_PREFIX_PATH'")
+	setup_lines+=("export LD_LIBRARY_PATH='/usr/lib/llvm-$clang_major_version/lib:$LD_LIBRARY_PATH'")
+	case "$CC" in
+	*clang*)
+		setup_lines+=("export CC=clang")
+		setup_lines+=("export CXX=clang++")
+		;;
+	*gcc*)
+		case "$matrix_os" in
+		*-20.04)
+			setup_lines+=("export CC=gcc-10")
+			setup_lines+=("export CXX=g++-10")
+			;;
+		esac
+		;;
+	esac
+
 	;;
 
 macos-*)
+
+	#bin_dir="$self_dir/bin"
+	bin_dir="$tmp_dir/bin"
+	llvm_dir=/usr/local/opt/llvm@$clang_major_version
+	gcc_dir=/usr/local/opt/gcc@$gcc_major_version
+	gxx_program="$gcc_dir/bin/g++-$gcc_major_version"
+	gcc_program="$gcc_dir/bin/gcc-$gcc_major_version"
+	python_program=/usr/local/bin/python3
+	make_program=/usr/local/bin/make
+	cmake_program=/usr/local/bin/cmake
+
+	sdk_path="$(xcrun --show-sdk-path)" || panic
+
+	mkdir -p "$bin_dir" || \
+	  panic "cannot make directory $bin_dir"
 
 	#export HOMEBREW_NO_AUTO_UPDATE=1
 	#export HOMEBREW_NO_ANALYTICS=1
@@ -181,22 +282,64 @@ macos-*)
 		  brew link --overwrite python3 || panic
 	fi
 	brew install boost || panic "brew install boost failed"
-	brew install llvm@15 || panic "brew install failed"
+	brew install gcc || panic "brew install gcc failed"
+	brew install llvm@15 || panic "brew install llvm failed"
+	brew install cmake || panic "brew install cmake failed"
+	brew install make || panic "brew install make failed"
 	#brew install lit || panic "brew install failed"
 
-	list_directory -l /usr/local/Cellar/llvm/15/bin/clang
-	list_directory -l /usr/local/Cellar
-	list_directory -l /usr/local/opt
-	#list_directory -l /usr/local/opt/llvm
-	#list_directory -l /usr/local/opt/clang
+	list_directory -L /usr/local/Cellar/llvm/15/bin/clang
+	list_directory -L /usr/local/Cellar
+	list_directory  -L /usr/local/opt
+	#list_directory -L /usr/local/opt/llvm
+	#list_directory -L /usr/local/opt/clang
 
-	list_directory -l /usr/local/opt/llvm@15/bin
-	list_directory -l /usr/local/opt/llvm@15/include
-	list_directory -l /usr/local/opt/llvm@15/include/clang
-	#list_directory -l /usr/local/opt/llvm@15/include/clang/15.0.6
-	#list_directory -l /usr/local/opt/llvm@15/lib
-	#list_directory -l /usr/local/opt/llvm@15/lib/clang
-	list_directory -l /usr/local/opt/llvm@15/lib/clang/15.0.6/include
+	list_directory -L /usr/local/opt/llvm@15/bin
+	list_directory -L /usr/local/opt/llvm@15/include
+	list_directory -L /usr/local/opt/llvm@15/include/clang
+	#list_directory -L /usr/local/opt/llvm@15/include/clang/15.0.6
+	#list_directory -L /usr/local/opt/llvm@15/lib
+	#list_directory -L /usr/local/opt/llvm@15/lib/clang
+	list_directory -L /usr/local/opt/llvm@15/lib/clang/15.0.6/include
+
+	list_directory -L /usr/local/opt/gcc@13
+	list_directory -L /usr/local/opt/gcc@13/bin
+	list_directory -L /usr/local/opt/gcc@12
+	list_directory -L /usr/local/opt/gcc@12/bin
+
+	cat <<- EOF
+	python: $(type -P python)
+	python2: $(type -P python2)
+	python3: $(type -P python3)
+	EOF
+
+	list_directory -L /usr/local/opt/python
+	list_directory -L /usr/local/opt/python/bin
+	list_directory -L /usr/local/opt/python3
+	list_directory -L /usr/local/opt/python3/bin
+	list_directory -L /usr/local/opt/cmake
+	list_directory -L /usr/local/opt/cmake/bin
+	list_directory -L /usr/local/opt/make
+	list_directory -L /usr/local/opt/make/bin
+
+	ln -s "$gcc_program" "$bin_dir/gcc" || \
+	  panic "cannot create symbolic link for gcc"
+	ln -s "$gxx_program" "$bin_dir/g++" || \
+	  panic "cannot create symbolic link for g++"
+	ln -s "$python_program" "$bin_dir/python" || \
+	  panic "cannot create symbolic link for python"
+	ln -s "$cmake_program" "$bin_dir/cmake" || \
+	  panic "cannot create symbolic link for cmake"
+	ln -s "$make_program" "$bin_dir/make" || \
+	  panic "cannot create symbolic link for make"
+	list_directory -L "$bin_dir"
+
+	setup_lines+=("export PATH=$bin_dir:$gcc_dir/bin:$llvm_dir/bin:$PATH")
+	setup_lines+=("export CMAKE_PREFIX_PATH='$llvm_dir/lib/cmake/llvm:$CMAKE_PREFIX_PATH'")
+	setup_lines+=("export LD_LIBRARY_PATH='$llvm_dir/lib:$LD_LIBRARY_PATH'")
+	#export CL_CLANG_INCLUDE_DIR="/usr/local/opt/llvm@$clang_major_version/lib/clang/$clang_version/include"
+	setup_lines+=("export CL_CLANG_INCLUDE_DIR='$llvm_dir/lib/clang/$clang_version/include'")
+	setup_lines+=("export CPLUS_INCLUDE_PATH='$llvm_dir/include/c++/v1:$llvm_dir/lib/clang/$clang_version/include:$sdk_path:$sdk_path/usr/include'")
 
 	;;
 
@@ -205,5 +348,22 @@ macos-*)
 	;;
 
 esac
+
+if [ -n "$setup_file" ]; then
+	echo -n > "$setup_file" || panic "cannot truncate setup file $setup_file"
+	for line in "${setup_lines[@]}"; do
+		cat >> "$setup_file" <<< "$line" || \
+		  panic "cannot write setup file $setup_file"
+	done
+	ls -al "$setup_file"
+	cat <<- EOF
+	setup file contents:
+	============================================================
+	$(cat "$setup_file")
+	============================================================
+	EOF
+fi
+
+print_settings
 
 exit 0

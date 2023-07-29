@@ -12,13 +12,9 @@ with the following slide deck:
 Obtaining the Slide Deck
 ------------------------
 
-The most recent version of the slide deck is available for download at:
+The slide deck is available for download at:
 
-  - <https://www.ece.uvic.ca/~mdadams/cppbook>
-
-A direct link to the slide deck in PDF format is:
-
-  - <https://www.ece.uvic.ca/~mdadams/cppbook/downloads/lecture_slides_for_the_clang_libraries-0.0.pdf>
+  - <https://www.ece.uvic.ca/~mdadams/cppbook/#clang_slides>
 
 Organization of Repository
 --------------------------
@@ -52,12 +48,13 @@ are built and run as a basic sanity test.
 This CI workflow serves as an example to show how the LLVM/Clang
 Ubuntu APT packages that are provided by the LLVM Project (at
 <https://apt.llvm.org/>) can be used in GitHub-hosted Linux runners.
-The CI workflow currently builds for the following platforms:
+The CI workflow currently builds for a few combinations of the following:
 
-  - Ubuntu 22.04 with application programs built using each of:
-    - Clang
-    - GCC
-  - Ubuntu 20.04 with application programs built using each of:
+  - operating system:
+    - Ubuntu 20.04
+    - macOS 13
+    - macOS 12
+  - application programs built using:
     - Clang
     - GCC
 
@@ -67,6 +64,7 @@ Prerequisites to Building the Software
 The code examples have the following software dependencies:
 
   - CMake
+  - Make
   - version 15 of LLVM/Clang
   - GCC (if application programs are to be build with GCC)
   - Boost
@@ -207,6 +205,6 @@ Supported Platforms
 This software should work with most Unix-based systems (provided that
 the necessary software dependencies are installed).
 The GitHub CI workflow (discussed above) ensures that the software should
-build and run reasonably reliably on Ubuntu Linux.
+build and run reasonably reliably on Ubuntu Linux and macOS.
 The author's main development platform is Fedora Linux.
 So, the software should also work fairly reliably on this platform as well.

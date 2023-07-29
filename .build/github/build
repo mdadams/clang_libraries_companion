@@ -8,11 +8,6 @@ panic()
 	exit 1
 }
 
-list_files()
-{
-    find "$1" -printf "%M %u %P\n" | sort
-}
-
 get_clang_version()
 {
 	local program="${1:-clang++}"
@@ -38,11 +33,14 @@ self_dir="$(dirname "$self_program")" || \
 
 top_dir="$self_dir/../.."
 
+setup_file=
 verbose=0
 matrix_os=
 
-while getopts vs: option; do
+while getopts vs:c: option; do
 	case "$option" in
+	c)
+		setup_file="$OPTARG";;
 	v)
 		verbose=$((verbose + 1));;
 	s)
@@ -55,51 +53,39 @@ while getopts vs: option; do
 done
 shift $((OPTIND - 1))
 
+if [ -n "$setup_file" ]; then
+	cat <<- EOF
+	============================================================
+	Sourcing setup file
+
+	setup file contents:
+	============================================================
+	$(cat "$setup_file")
+	============================================================
+	EOF
+	source "$setup_file" || \
+	  panic "cannot source setup file $setup_file"
+fi
 
 build_options=()
+
 build_options+=(--num-jobs 4)
+
+# Determine whether to run demo scripts.
 case "$matrix_os" in
-
-ubuntu-*)
-	case "$matrix_os" in
-	*-22.04)
-		build_options+=(--demo)
-		;;
-	esac
-	export PATH="/usr/lib/llvm-15/bin:$PATH"
-	export CMAKE_PREFIX_PATH="/usr/lib/llvm-15/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
-	export LD_LIBRARY_PATH="/usr/lib/llvm-15/lib:$LD_LIBRARY_PATH"
-	case "$CC" in
-	*clang*)
-		export CC="clang"
-		export CXX="clang++"
-		;;
-	*gcc*)
-		case "$matrix_os" in
-		*-20.04)
-			export CC="gcc-10"
-			export CXX="g++-10"
-			;;
-		esac
-		;;
-	esac
+#ubuntu-22.04|macos-12)
+#ubuntu-22.04)
+#ubuntu-*)
+*)
+	build_options+=(--demo)
 	;;
+esac
 
-macos-*)
-	# TODO: How to find the version number?
-	clang_version=15.0.7
-	llvm_dir=/usr/local/Cellar/llvm/$clang_version
-	export PATH=/usr/local/opt/llvm/bin:$llvm_dir/bin:$PATH
-	export CMAKE_PREFIX_PATH="$llvm_dir/lib/cmake/llvm:$CMAKE_PREFIX_PATH"
-	export LD_LIBRARY_PATH="$llvm_dir/lib:$LD_LIBRARY_PATH"
-	#export CL_CLANG_INCLUDE_DIR=/usr/local/opt/llvm@15/lib/clang/$clang_version/include
+# Determine some ASan settings.
+case "$matrix_os" in
+macos-12)
 	build_options+=(--no-enable-asan-user-poisoning)
 	;;
-
-*)
-	panic "invalid matrix OS"
-	;;
-
 esac
 
 if [ "$verbose" -ge 1 ]; then
@@ -115,31 +101,62 @@ if [ "$verbose" -ge 1 ]; then
 	============================================================
 	CMAKE_PREFIX_PATH: $CMAKE_PREFIX_PATH
 	============================================================
-	Clang version:
-	$(clang++ --version)
-	$(clang --version)
+	CPLUS_INCLUDE_PATH: $CPLUS_INCLUDE_PATH
+	C_INCLUDE_PATH: $C_INCLUDE_PATH
+	CPATH: $CPATH
 	============================================================
-	GCC version:
+	clang++ path: $(type -P clang++)
+	clang++ version: $(get_clang_version clang++)
+	----------
+	$(clang++ --version)
+	----------
+	clang path: $(type -P clang)
+	clang version: $(get_clang_version clang)
+	----------
+	$(clang --version)
+	----------
+	============================================================
+	g++ path: $(type -P g++)
+	g++ version:
+	----------
 	$(g++ --version)
+	----------
+	gcc path: $(type -P gcc)
+	gcc version:
+	----------
 	$(gcc --version)
+	----------
 	============================================================
 	Clang default version of C++ standard:
-	$(g++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
+	$(clang++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
 	============================================================
 	GCC default version of C++ standard:
-	$(clang++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
+	$(g++ -dM -E -x c++  /dev/null | grep -F __cplusplus)
+	============================================================
+	python path: $(type -P python)
+	python2 path: $(type -P python2)
+	python3 path: $(type -P python3)
 	============================================================
 	EOF
 fi
 
-"$top_dir/build" \
-  --verbose \
-  --clean \
-  --build \
-  --verbose-makefile \
-  --fmt \
-  --debug \
-  --asan \
-  --ubsan \
-  "${build_options[@]}" \
-  || panic "build failed"
+command=(
+	"$top_dir/build"
+	--verbose
+	--clean
+	--build
+	--verbose-makefile
+	--fmt
+	--debug
+	--asan
+	--ubsan
+	"${build_options[@]}"
+)
+if [ "$verbose" -ge 1 ]; then
+	cat <<- EOF
+	============================================================
+	RUNNING: ${command[*]}
+	============================================================
+	EOF
+fi
+"${command[@]}" || panic "build failed"
