@@ -51,6 +51,7 @@ Ubuntu APT packages that are provided by the LLVM Project (at
 The CI workflow currently builds for a few combinations of the following:
 
   - operating system:
+    - Ubuntu 22.04
     - Ubuntu 20.04
     - macOS 13
     - macOS 12
