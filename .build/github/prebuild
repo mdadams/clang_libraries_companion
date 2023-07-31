@@ -131,6 +131,8 @@ case "$matrix_os" in
 
 ubuntu-*)
 
+	delete_packages=()
+
 	llvm_packages=(
 		libllvm-15-ocaml-dev
 		libllvm15
@@ -174,6 +176,16 @@ ubuntu-*)
 			libboost-all-dev
 			python3
 		)
+		delete_packages+=(
+			libc++1-14
+			libc++1-15
+			libc++abi1-14
+			libc++abi1-15
+			libunwind-14
+			libunwind-15
+			python3-lldb-14
+			python3-lldb-15
+		)
 		;;
 
 	*-20.04)
@@ -192,6 +204,11 @@ ubuntu-*)
 		;;
 
 	esac
+
+	if [ "${#delete_packages[@]}" -ne 0 ]; then
+		sudo apt-get --purge autoremove "${delete_packages[@]}" || \
+		  panic "cannot remove packages"
+	fi
 
 	wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | \
 	  sudo apt-key add -
