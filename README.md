@@ -6,8 +6,8 @@ with the following slide deck:
 
   - Michael D. Adams.
     Lecture Slides for the Clang Libraries [LLVM/Clang 15].
-    Edition 0.0,
-    Dec. 2022.
+    Edition 0.1.0,
+    Aug. 2023.
 
 Obtaining the Slide Deck
 ------------------------
