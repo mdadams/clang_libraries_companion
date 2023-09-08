@@ -81,8 +81,7 @@ process) to provide this support.  (This custom version of the fmt library
 provides a standard library header called "format" and places a few key
 declarations in the std namespace in that header.)  The C++ standard
 library included with version 13 and above of GCC has support for
-std::format.  (As of the time of this writing, however, GCC 13 is still
-under development.)
+std::format.
 
 Building the Software
 ---------------------

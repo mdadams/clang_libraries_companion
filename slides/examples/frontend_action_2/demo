@@ -27,10 +27,14 @@ run_clang_tool="$source_dir/run_clang_tool"
 
 ################################################################################
 
-source_files=(
-	"$data_dir/example_1.cpp"
-	"$data_dir/example_2.c"
-)
+source_files=("$@")
+
+if [ ${#source_files[@]} -eq 0 ]; then
+	source_files=(
+		"$data_dir/example_1.cpp"
+		"$data_dir/example_2.c"
+	)
+fi
 
 program="$build_dir/frontend_action"
 
