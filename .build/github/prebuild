@@ -177,6 +177,10 @@ ubuntu-*)
 			python3
 		)
 		delete_packages+=(
+			gcc-12
+			g++-12
+			gcc-13
+			g++-13
 			libc++1-14
 			libc++1-15
 			libc++abi1-14
@@ -206,8 +210,18 @@ ubuntu-*)
 	esac
 
 	if [ "${#delete_packages[@]}" -ne 0 ]; then
-		sudo apt-get --purge autoremove "${delete_packages[@]}" || \
-		  panic "cannot remove packages"
+		if [ 0 -ne 0 ]; then
+			# Remove packages one at a time (for debugging).
+			for package in "${delete_packages[@]}"; do
+				echo "Removing package $package"
+				sudo apt-get --purge autoremove "$package" || \
+				  panic "cannot remove package $package"
+			done
+		else
+			# Remove all packages at once.
+			sudo apt-get --purge autoremove "${delete_packages[@]}" || \
+			  panic "cannot remove packages"
+		fi
 	fi
 
 	wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | \
