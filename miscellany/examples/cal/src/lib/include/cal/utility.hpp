@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <format>
 #include "llvm/Support/raw_ostream.h"
 

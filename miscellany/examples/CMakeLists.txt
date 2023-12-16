@@ -78,11 +78,19 @@ list(APPEND project_dirs
   dump_type
   lib_use_analyzer
   mangle_1
+  jsontool
 )
 
+# A list of the project directories that have install targets.
 list(APPEND installable_project_dirs
   lib_use_analyzer
   query_dependencies
+  jsontool
+)
+
+# A list of project directories that do not have demo targets.
+list(APPEND nondemoable_project_dirs
+  jsontool
 )
 
 # Add each project as an external project.
@@ -105,6 +113,13 @@ foreach(dir IN LISTS project_dirs)
 		set(has_install_target TRUE)
 	else()
 		set(has_install_target FALSE)
+	endif()
+
+	list(FIND nondemoable_project_dirs ${dir} find_index)
+	if(NOT find_index EQUAL -1)
+		set(has_demo_target FALSE)
+	else()
+		set(has_demo_target TRUE)
 	endif()
 
 	if(has_install_target)
@@ -137,7 +152,9 @@ foreach(dir IN LISTS project_dirs)
 	  )
 	add_dependencies(configure ${target}-configure)
 	add_dependencies(build ${target}-build)
-	add_dependencies(demo ${target}-demo)
+	if(has_demo_target)
+		add_dependencies(demo ${target}-demo)
+	endif()
 	if(has_install_target)
 		add_dependencies(install-subprojects ${target}-install)
 	endif()

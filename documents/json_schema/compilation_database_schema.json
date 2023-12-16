@@ -31,6 +31,10 @@
       "command": {
         "description": "The compile command as a single shell-escaped string.  Arguments may be shell quoted and escaped following platform conventions, with ‘\"’ and ‘\\’ being the only special characters. Shell expansion is not supported.",
         "type": "string"
+      },
+      "output": {
+        "description": "The name of the output created by this compilation step. This field is optional. It can be used to distinguish different processing modes of the same input file.",
+        "type": "string"
       }
     }
   }

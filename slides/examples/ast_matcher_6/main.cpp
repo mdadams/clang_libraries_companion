@@ -1,4 +1,5 @@
 #include <format>
+#include <string_view>
 #include <clang/ASTMatchers/ASTMatchers.h>
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/Tooling/CommonOptionsParser.h>
@@ -11,13 +12,12 @@ namespace cam = clang::ast_matchers;
 AST_MATCHER_P(clang::CXXRecordDecl, forEachVirtualBase,
   cam::internal::Matcher<clang::CXXBaseSpecifier>, innerMatcher) {
 	bool matched = false;
-	clang::ast_matchers::internal::BoundNodesTreeBuilder result;
+	cam::internal::BoundNodesTreeBuilder result;
 	const clang::CXXRecordDecl* def = Node.getDefinition();
 	if (!def) {return false;}
 	for (auto baseIter = def->vbases_begin(); baseIter != def->vbases_end();
 	  ++baseIter) {
-		clang::ast_matchers::internal::BoundNodesTreeBuilder argBuilder(
-		  *Builder);
+		cam::internal::BoundNodesTreeBuilder argBuilder(*Builder);
 		if (innerMatcher.matches(*baseIter, Finder, &argBuilder)) {
 			matched = true;
 			result.addMatch(argBuilder);
@@ -36,8 +36,8 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 	auto baseDecl = result.Nodes.getNodeAs<clang::CXXRecordDecl>(
 	  "baseDecl");
 	if (!decl || !baseDecl) {return;}
-	llvm::outs() << std::format("{} has virtual base {}\n", decl->getName(),
-	  baseDecl->getName());
+	llvm::outs() << std::format("{} has virtual base {}\n",
+	  std::string_view(decl->getName()), std::string_view(baseDecl->getName()));
 }
 
 static llvm::cl::OptionCategory optionCategory("Tool options");

@@ -1,6 +1,7 @@
 #include <format>
 #include <map>
 #include <string>
+#include <string_view>
 #include "clang/Basic/LangStandard.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendAction.h"
@@ -60,7 +61,7 @@ std::unique_ptr<clang::ASTConsumer> MyFrontendAction::CreateASTConsumer(
   clang::CompilerInstance& compInstance, llvm::StringRef inFile) {
 	const clang::LangOptions& langOpts = compInstance.getLangOpts();
 	llvm::outs() << std::format("{}\nlanguage: {}\nstandard: {}\nname: {}\n\n",
-	  inFile, langKindToLangString(langOpts.LangStd),
+	  std::string_view(inFile), langKindToLangString(langOpts.LangStd),
 	  langKindToStdString(langOpts.LangStd),
 	  langKindToNameString(langOpts.LangStd));
 	return clang::SyntaxOnlyAction::CreateASTConsumer(compInstance, inFile);

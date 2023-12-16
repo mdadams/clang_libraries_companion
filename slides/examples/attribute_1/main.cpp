@@ -1,6 +1,7 @@
 #include <format>
-#include <string>
 #include <map>
+#include <string>
+#include <string_view>
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/FrontendActions.h"
@@ -47,7 +48,7 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 	auto decl = result.Nodes.getNodeAs<clang::NamedDecl>("d");
 	if (!decl) {return;}
 	llvm::outs() << std::format("{} {}\n", declTypeToString(decl),
-	  decl->getIdentifier() ? decl->getName() : "---");
+	  decl->getIdentifier() ? std::string_view(decl->getName()) : "---");
 	for (auto attrIter = decl->attr_begin(); attrIter != decl->attr_end();
 	  ++attrIter) {
 		const clang::Attr* attr = *attrIter;

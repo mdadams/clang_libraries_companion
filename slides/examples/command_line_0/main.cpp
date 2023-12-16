@@ -1,5 +1,6 @@
 #include <format>
 #include <string>
+#include <string_view>
 #include "llvm/Support/CommandLine.h"
 
 namespace lc = llvm::cl;
@@ -22,9 +23,9 @@ int main(int argc, char **argv) {
 	  "This program illustrates the use of the LLVM CommandLine API.");
 	llvm::outs()
 	  << std::format("log file: {}\n",
-	  !logFile.empty() ? std::string(logFile) : "---")
-	  << std::format("debug level: {}\n", debugLevel)
-	  << std::format("verbose: {}\n", verbose);
+	  !logFile.empty() ? std::string_view(logFile) : "---")
+	  << std::format("debug level: {}\n", static_cast<bool>(debugLevel))
+	  << std::format("verbose: {}\n", static_cast<bool>(verbose));
 	for (auto i : values) {llvm::outs() << std::format("value: {}\n", i);}
 	for (auto i : files) {llvm::outs() << std::format("file: {}\n", i);}
 }

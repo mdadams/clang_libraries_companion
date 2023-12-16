@@ -1,5 +1,8 @@
 #include <cassert>
 #include <format>
+#include <string>
+#include <string_view>
+#include <vector>
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/FrontendActions.h"
@@ -47,8 +50,8 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 	assert(tempDecl->getQualifiedNameAsString() == "std::tuple");
 	llvm::outs() << std::format(
 	  "variable {} of type {} with {} template arguments\n",
-	  varDecl->getName(), tempDecl->getQualifiedNameAsString(),
-	  arg.pack_size());
+	  std::string_view(varDecl->getName()),
+	  tempDecl->getQualifiedNameAsString(), arg.pack_size());
 	for (auto i : names) {llvm::outs() << std::format("    {}\n", i);}
 }
 
