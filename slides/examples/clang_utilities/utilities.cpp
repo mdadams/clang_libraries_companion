@@ -1,7 +1,7 @@
 #include <format>
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Lex/Lexer.h"
+#include <clang/Basic/SourceManager.h>
+#include <clang/Basic/SourceLocation.h>
+#include <clang/Lex/Lexer.h>
 
 std::string locationToString(const clang::SourceManager& sourceManager,
   clang::SourceLocation sourceLoc) {

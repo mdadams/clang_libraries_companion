@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-project(examples LANGUAGES CXX)
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+project(examples LANGUAGES CXX C)
 
 option(ENABLE_ASAN "Enable ASan" TRUE)
 option(ENABLE_UBSAN "Enable UBSan" TRUE)
@@ -10,6 +12,14 @@ option(ENABLE_UBSAN "Enable UBSan" TRUE)
 
 include(ExternalProject)
 include(FetchContent)
+include(ParseVersion)
+
+################################################################################
+
+find_package(LLVM REQUIRED CONFIG)
+parse_version_string("${LLVM_VERSION}" LLVM_MAJOR_VERSION LLVM_MINOR_VERSION
+  LLVM_PATCH_VERSION)
+find_package(Clang REQUIRED CONFIG)
 
 ################################################################################
 
@@ -100,6 +110,13 @@ foreach(dir IN LISTS project_dirs)
 	if(NOT EXISTS "${CMAKE_SOURCE_DIR}/${dir}")
 		message(WARNING "Skipping directory ${dir}")
 		continue()
+	endif()
+
+	if(NOT LLVM_MAJOR_VERSION EQUAL 15)
+		if(dir STREQUAL "lib_use_analyzer" OR dir STREQUAL "query_dependencies")
+			message(WARNING "Skipping directory ${dir}")
+			continue()
+		endif()
 	endif()
 
 	# Set target name to directory name with any

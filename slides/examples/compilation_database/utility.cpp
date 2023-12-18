@@ -1,7 +1,7 @@
 #include <format>
 #include <vector>
-#include "clang/Tooling/CompilationDatabase.h"
-#include "llvm/Support/raw_ostream.h"
+#include <clang/Tooling/CompilationDatabase.h>
+#include <llvm/Support/raw_ostream.h>
 #include "utility.hpp"
 
 namespace ct = clang::tooling;

@@ -1,8 +1,8 @@
 #include <format>
 #include <utility>
-#include "clang/Tooling/CommonOptionsParser.h"
-#include "clang/Tooling/CompilationDatabase.h"
-#include "llvm/Config/llvm-config.h"
+#include <clang/Tooling/CommonOptionsParser.h>
+#include <clang/Tooling/CompilationDatabase.h>
+#include <llvm/Config/llvm-config.h>
 #include "utility.hpp"
 
 namespace ct = clang::tooling;

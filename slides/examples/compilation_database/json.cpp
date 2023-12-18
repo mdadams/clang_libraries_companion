@@ -1,7 +1,7 @@
 #include <format>
 #include <utility>
-#include "clang/Tooling/CompilationDatabase.h"
-#include "clang/Tooling/JSONCompilationDatabase.h"
+#include <clang/Tooling/CompilationDatabase.h>
+#include <clang/Tooling/JSONCompilationDatabase.h>
 #include "utility.hpp"
 
 namespace ct = clang::tooling;

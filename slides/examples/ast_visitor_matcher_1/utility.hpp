@@ -1,7 +1,7 @@
 #include <cassert>
-#include "clang/AST/ASTContext.h"
-#include "clang/AST/RecursiveASTVisitor.h"
-#include "clang/AST/ParentMapContext.h"
+#include <clang/AST/ASTContext.h>
+#include <clang/AST/RecursiveASTVisitor.h>
+#include <clang/AST/ParentMapContext.h>
 
 template<class NodeType>
 const NodeType* getParentOfStmt(clang::ASTContext& astContext,

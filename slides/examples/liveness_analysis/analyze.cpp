@@ -1,7 +1,7 @@
-#include "clang/AST/ASTContext.h"
-#include "clang/Analysis/CFG.h"
-#include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Analysis/Analyses/LiveVariables.h"
+#include <clang/AST/ASTContext.h>
+#include <clang/Analysis/CFG.h>
+#include <clang/Analysis/AnalysisDeclContext.h>
+#include <clang/Analysis/Analyses/LiveVariables.h>
 
 void analyzeFunc(clang::ASTContext& astContext, const clang::FunctionDecl*
   funcDecl, bool printCfg) {

@@ -1,7 +1,7 @@
 #include <format>
 #include <tuple>
 #include <string>
-#include "clang/Lex/Lexer.h"
+#include <clang/Lex/Lexer.h>
 #include "utilities2.hpp"
 
 clang::SourceLocation getEndOfToken(const clang::SourceManager& sourceManager,

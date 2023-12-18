@@ -1,5 +1,5 @@
 #include <string>
-#include "clang/ASTMatchers/ASTMatchers.h"
+#include <clang/ASTMatchers/ASTMatchers.h>
 
 namespace cam = clang::ast_matchers;
 

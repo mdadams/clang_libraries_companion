@@ -140,8 +140,12 @@ std::string getDemangledName(const std::string& mangledName)
 {
 	std::size_t size = 0;
 	int status;
+#if (LLVM_MAJOR_VERSION >= 17)
+	char* result = llvm::itaniumDemangle(mangledName);
+#else /* LLVM 15 and 16 */
 	char* result = llvm::itaniumDemangle(mangledName.c_str(), nullptr, &size,
 	  &status);
+#endif
 	if (status != llvm::demangle_success) {
 		return "";
 	}

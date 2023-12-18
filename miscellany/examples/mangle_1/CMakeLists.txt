@@ -5,6 +5,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
 include(ClangSetup)
+include(ParseVersion)
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -12,6 +13,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(LLVM REQUIRED CONFIG)
+parse_version_string("${LLVM_VERSION}" LLVM_MAJOR_VERSION LLVM_MINOR_VERSION
+  LLVM_PATCH_VERSION)
 find_package(Clang REQUIRED CONFIG)
 find_package(Fmt)
 if(TARGET Fmt::Fmt)
@@ -33,6 +36,7 @@ target_sources(tool PRIVATE main.cpp)
 target_link_libraries(tool PRIVATE ${llvm_libs} ${clang_libs})
 target_include_directories(tool PRIVATE ${LLVM_INCLUDE_DIRS})
 target_compile_definitions(tool PRIVATE ${LLVM_DEFINITIONS})
+target_compile_definitions(tool PRIVATE LLVM_MAJOR_VERSION=${LLVM_MAJOR_VERSION})
 
 set(test_sources
 	data/example_1.cpp
