@@ -1,7 +1,7 @@
 #include <string>
-#include "clang/AST/Decl.h"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/SourceLocation.h"
+#include <clang/AST/Decl.h>
+#include <clang/Basic/SourceManager.h>
+#include <clang/Basic/SourceLocation.h>
 
 std::string locationToString(const clang::SourceManager& sourceManager,
   clang::SourceLocation sourceLoc, bool includeFileName = true);

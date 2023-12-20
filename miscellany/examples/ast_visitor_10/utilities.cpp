@@ -1,10 +1,11 @@
 #include <format>
 #include <string>
 
+#include <clang/Basic/SourceManager.h>
+#include <clang/Basic/SourceLocation.h>
+#include <clang/Lex/Lexer.h>
+
 #include "utilities.hpp"
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/SourceLocation.h"
-#include "clang/Lex/Lexer.h"
 
 std::string locationToString(const clang::SourceManager& sourceManager,
   clang::SourceLocation sourceLoc, bool includeFileName) {

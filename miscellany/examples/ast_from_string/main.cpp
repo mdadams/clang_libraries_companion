@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 #include <clang/Basic/Diagnostic.h>
-#include "clang/Frontend/ASTUnit.h"
-#include "clang/Serialization/PCHContainerOperations.h"
-#include "clang/Tooling/ArgumentsAdjusters.h"
-#include "clang/Tooling/Tooling.h"
+#include <clang/Frontend/ASTUnit.h>
+#include <clang/Serialization/PCHContainerOperations.h>
+#include <clang/Tooling/ArgumentsAdjusters.h>
+#include <clang/Tooling/Tooling.h>
 
 namespace ct = clang::tooling;
 

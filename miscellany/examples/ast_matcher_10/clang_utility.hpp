@@ -1,8 +1,8 @@
 #pragma once
 
 #include <string>
-#include "clang/Basic/SourceManager.h"
-#include "clang/Basic/SourceLocation.h"
+#include <clang/Basic/SourceManager.h>
+#include <clang/Basic/SourceLocation.h>
 
 std::pair<bool, std::string> charSourceRangeToText(const clang::SourceManager&
   sourceManager, clang::CharSourceRange charSourceRange);

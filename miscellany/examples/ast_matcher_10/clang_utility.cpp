@@ -2,7 +2,8 @@
 #include <tuple>
 #include <boost/process/search_path.hpp>
 #include <boost/process.hpp>
-#include "clang/Lex/Lexer.h"
+#include <clang/Lex/Lexer.h>
+
 #include "clang_utility.hpp"
 
 namespace bf = boost::filesystem;
