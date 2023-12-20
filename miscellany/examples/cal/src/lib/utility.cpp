@@ -240,9 +240,6 @@ std::string getClangIncludeDirPathName()
 		return "";
 	}
 
-	bf::path prefix = clangProgramPath.parent_path().parent_path();
-	bf::path path;
-	bool found = false;
 	const std::vector<std::string> libDirNames{
 		"lib64",
 		"lib",
@@ -252,8 +249,11 @@ std::string getClangIncludeDirPathName()
 		std::format("{}.{}", clangVersion.major, clangVersion.minor),
 		std::format("{}", clangVersion.major),
 	};
-	for (auto libDirName : libDirNames) {
-		for (auto versionDirName : versionDirNames) {
+	bf::path prefix = clangProgramPath.parent_path().parent_path();
+	bf::path path;
+	bool found = false;
+	for (const auto& libDirName : libDirNames) {
+		for (const auto& versionDirName : versionDirNames) {
 			path = prefix;
 			path /= libDirName;
 			path /= bf::path("clang") /= bf::path(versionDirName) /=
@@ -266,6 +266,9 @@ std::string getClangIncludeDirPathName()
 				found = true;
 				break;
 			}
+		}
+		if (found) {
+			break;
 		}
 	}
 	if (!found) {
