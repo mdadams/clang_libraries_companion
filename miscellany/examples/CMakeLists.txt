@@ -112,12 +112,12 @@ foreach(dir IN LISTS project_dirs)
 		continue()
 	endif()
 
-	if(NOT LLVM_MAJOR_VERSION EQUAL 15)
-		if(dir STREQUAL "lib_use_analyzer" OR dir STREQUAL "query_dependencies")
-			message(WARNING "Skipping directory ${dir}")
-			continue()
-		endif()
-	endif()
+	#if(NOT LLVM_MAJOR_VERSION EQUAL 15)
+	#	if(dir STREQUAL "lib_use_analyzer")
+	#		message(WARNING "Skipping directory ${dir}")
+	#		continue()
+	#	endif()
+	#endif()
 
 	# Set target name to directory name with any
 	# spaces changed to underscores.

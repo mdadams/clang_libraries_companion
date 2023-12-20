@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <format>
 #include <iostream>
 #include <string>
@@ -6,6 +7,7 @@
 #include <boost/process/environment.hpp>
 #include <boost/process.hpp>
 #include <boost/process/search_path.hpp>
+#include <boost/tokenizer.hpp>
 #include "cal/main.hpp"
 
 namespace bf = boost::filesystem;
@@ -13,7 +15,48 @@ namespace bp = boost::process;
 
 namespace cal {
 
-unsigned int getLineNumSize(unsigned int maxLineNo) {
+/****************************************************************************\
+Semantic Version Numbering
+\****************************************************************************/
+
+// Semantic version number
+struct Version {
+	int major;
+	int minor;
+	int patch;
+};
+
+bool parseVersion(const std::string& versionString, Version& version)
+{
+	boost::char_separator<char> sep(".");
+	boost::tokenizer<boost::char_separator<char>> tokenizer(versionString,
+	  sep);
+	auto i = tokenizer.begin();
+	version = {0, 0, 0};
+	if (i != tokenizer.end()) {
+		version.major = std::atoi(i->c_str());
+		++i;
+		if (i != tokenizer.end()) {
+			version.minor = std::atoi(i->c_str());
+			++i;
+			if (i != tokenizer.end()) {
+				version.patch = std::atoi(i->c_str());
+				++i;
+				if (i != tokenizer.end()) {
+					return false;
+				}
+			}
+		}
+	}
+	return true;
+}
+
+/****************************************************************************\
+Code Pretty Printing
+\****************************************************************************/
+
+unsigned int getLineNumSize(unsigned int maxLineNo)
+{
 	unsigned int count = 1;
 	while (maxLineNo >= 10) {
 		maxLineNo /= 10;
@@ -23,7 +66,8 @@ unsigned int getLineNumSize(unsigned int maxLineNo) {
 }
 
 std::string addLineNumbers(const std::string& text, unsigned int startLineNo,
-  unsigned int startColumnNo, bool lineHeader, bool columnHeader) {
+  unsigned int startColumnNo, bool lineHeader, bool columnHeader)
+{
 	std::string result;
 
 	if (text.empty()) {
@@ -98,8 +142,13 @@ std::string addLineNumbers(const std::string& text, unsigned int startLineNo,
 	return result;
 }
 
+/****************************************************************************\
+Clang Include Directory
+\****************************************************************************/
+
 #define CAL_HANDLE_CCACHE
-std::string getClangProgramPath() {
+std::string getClangProgramPath()
+{
 #if defined(CAL_HANDLE_CCACHE)
 	std::vector<bf::path> searchPath = boost::this_process::path();
 	auto clangPath = boost::process::search_path(bf::path("clang++"),
@@ -127,7 +176,8 @@ std::string getClangProgramPath() {
 #endif
 }
 
-std::string getClangVersion(const std::string& pathname) {
+std::string getClangVersion(const std::string& pathname)
+{
 	bp::ipstream is;
 	std::vector<std::basic_string<char>> args;
 	args.emplace_back("--version");
@@ -167,11 +217,8 @@ std::string getClangVersion(const std::string& pathname) {
 	return version;
 }
 
-std::string getClangIncludeDirPathName() {
-	const std::vector<std::string> subDirs{
-		"lib64",
-		"lib",
-	};
+std::string getClangIncludeDirPathName()
+{
 	bf::path clangProgramPath = getClangProgramPath();
 	if (clangProgramPath.empty()) {
 #if defined(CAL_DEBUG)
@@ -179,24 +226,46 @@ std::string getClangIncludeDirPathName() {
 #endif
 		return "";
 	}
-	std::string clangVersion = getClangVersion(clangProgramPath.string());
-	if (clangVersion.empty()) {
+	std::string clangVersionString = getClangVersion(
+	  clangProgramPath.string());
+	if (clangVersionString.empty()) {
 #if defined(CAL_DEBUG)
 		std::cerr << "getClangVersion failed\n";
 #endif
 		return "";
 	}
+
+	Version clangVersion;
+	if (!parseVersion(clangVersionString, clangVersion)) {
+		return "";
+	}
+
 	bf::path prefix = clangProgramPath.parent_path().parent_path();
 	bf::path path;
 	bool found = false;
-	for (auto subDir : subDirs) {
-		path = prefix;
-		path /= subDir;
-		path /= bf::path("clang") /= bf::path(clangVersion) /= bf::path("include");
-		auto status = bf::status(path);
-		if (bf::is_directory(status)) {
-			found = true;
-			break;
+	const std::vector<std::string> libDirNames{
+		"lib64",
+		"lib",
+	};
+	const std::vector<std::string> versionDirNames{
+		clangVersionString,
+		std::format("{}.{}", clangVersion.major, clangVersion.minor),
+		std::format("{}", clangVersion.major),
+	};
+	for (auto libDirName : libDirNames) {
+		for (auto versionDirName : versionDirNames) {
+			path = prefix;
+			path /= libDirName;
+			path /= bf::path("clang") /= bf::path(versionDirName) /=
+			  bf::path("include");
+#if defined(CAL_DEBUG)
+			std::cerr << std::format("checking path {}\n", path.string());
+#endif
+			auto status = bf::status(path);
+			if (bf::is_directory(status)) {
+				found = true;
+				break;
+			}
 		}
 	}
 	if (!found) {
