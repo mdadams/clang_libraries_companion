@@ -4,36 +4,21 @@ project(cast_1 LANGUAGES CXX C)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
-include(ClangSetup)
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(LLVM REQUIRED CONFIG)
-find_package(Clang REQUIRED CONFIG)
-find_package(Fmt)
-if(TARGET Fmt::Fmt)
-	link_libraries(Fmt::Fmt)
-endif()
-
-set(LLVM_LINK_COMPONENTS support)
-
-llvm_map_components_to_libnames(llvm_libs support)
-cl_get_clang_libs(clang_libs)
-
-# If Clang was built with RTTI disabled, then disable RTTI (to avoid linker
-# errors caused by undefined references related to typeinfo).
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+find_package(ClangFoo REQUIRED)
+include(CheckStdFormat)
+import_std_format()
 
 add_executable(app)
 target_sources(app PRIVATE main.cpp)
 
-target_link_libraries(app PRIVATE ${llvm_libs} ${clang_libs})
+target_link_libraries(app PRIVATE ClangFoo::llvm ClangFoo::clangcpp)
 list(APPEND all_targets app)
-target_include_directories(app PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(app PRIVATE ${LLVM_DEFINITIONS})
 
 set(test_sources
   data/example_1.cpp

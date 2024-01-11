@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <format>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <boost/filesystem.hpp>

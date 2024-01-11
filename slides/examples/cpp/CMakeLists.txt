@@ -6,17 +6,15 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
 
-find_package(Fmt)
-if(TARGET Fmt::Fmt)
-	link_libraries(Fmt::Fmt)
-endif()
-
-#set(CMAKE_VERBOSE_MAKEFILE TRUE)
-set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
-
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED true)
 set(CMAKE_CXX_EXTENSIONS false)
+
+include(CheckStdFormat)
+import_std_format()
+
+#set(CMAKE_VERBOSE_MAKEFILE TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(lib_sources
 	simple_1.cpp

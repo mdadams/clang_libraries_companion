@@ -81,10 +81,33 @@ case "$matrix_os" in
 	;;
 esac
 
-# Determine some ASan settings.
+# Determine whether to use the hacked fmt library.
 case "$matrix_os" in
-macos-12)
-	build_options+=(--no-enable-asan-user-poisoning)
+macos-*|ubuntu-*)
+	build_options+=(--fmt)
+	;;
+esac
+
+# Determine some sanitizer settings.
+build_options+=(--no-asan-detect-leaks)
+build_options+=(--asan-allow-user-poisoning)
+build_options+=(--ubsan-halt-on-error)
+case "$matrix_os" in
+ubuntu-*)
+	case "$matrix_os" in
+	ubuntu-22.04)
+		;;
+	ubuntu-20.04)
+		;;
+	esac
+	;;
+macos-*)
+	build_options+=(--no-asan-allow-user-poisoning)
+	build_options+=(--no-ubsan-halt-on-error)
+	case "$matrix_os" in
+	macos-12)
+		;;
+	esac
 	;;
 esac
 
@@ -140,13 +163,35 @@ if [ "$verbose" -ge 1 ]; then
 	EOF
 fi
 
+case "$COMPILER_CXX" in
+clang++)
+	compiler=clang;;
+g++)
+	compiler=gcc;;
+*)
+	panic "unknown compiler";;
+esac
+
+environ=()
+case "$compiler" in
+gcc)
+	environ+=("CC=$GCC_CC_PATH")
+	environ+=("CXX=$GCC_CXX_PATH")
+	;;
+clang)
+	environ+=("CC=$CLANG_CC_PATH")
+	environ+=("CXX=$CLANG_CXX_PATH")
+	;;
+esac
+
 command=(
+	env "${environ[@]}"
 	"$top_dir/build"
 	--verbose
 	--clean
 	--build
 	--verbose-makefile
-	--fmt
+	--no-fmt
 	--debug
 	--asan
 	--ubsan

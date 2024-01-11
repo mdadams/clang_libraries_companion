@@ -1,6 +1,8 @@
-#set(CAL_VERSION @PACKAGE_VERSION@)
+set(CAL_VERSION @PACKAGE_VERSION@)
 
 @PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
 
 # Note: The following assumes only one include directory, one library
 # directory, and one library.
@@ -12,4 +14,29 @@ set_and_check(CAL_SYSCONFIG_DIR
   "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_SYSCONF_DIR@")
 #find_library(CAL_LIBRARIES CAL HINTS ${CAL_LIBRARY_DIRS})
 
-#check_required_components(CAL)
+set(CAL_FMT_FOUND "@FMT_FOUND@")
+
+#include(CMakeFindDependencyMacro)
+#find_dependency(Threads)
+#find_dependency(Boost)
+#if(CAL_FMT_FOUND)
+#	find_dependency(Fmt)
+#endif()
+
+##find_package(ClangFoo REQUIRED)
+#find_dependency(ClangFoo REQUIRED)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+#set(Boost_USE_STATIC_LIBS ON)
+find_package(Boost REQUIRED COMPONENTS filesystem)
+if(CAL_FMT_FOUND)
+	if(NOT TARGET Fmt::Fmt)
+		find_package(Fmt)
+	endif()
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/CALTargets.cmake")
+
+add_library(CAL::CAL ALIAS CAL::cal)
+
+check_required_components(CAL)

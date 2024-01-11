@@ -1,12 +1,21 @@
 cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
 
-project(examples LANGUAGES NONE)
+project(examples LANGUAGES CXX C)
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 #set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 include(ExternalProject)
 include(FetchContent)
+include(CheckStdFormat)
+
+set(CMAKE_CXX_STANDARD 20)
+
+check_std_format(std_format)
+
+if(NOT std_format)
 
 ################################################################################
 
@@ -26,3 +35,10 @@ ExternalProject_Add(fmt
   -v 9.1.0
   -d <INSTALL_DIR>
   )
+
+else()
+
+add_library(dummy dummy.cpp)
+install(TARGETS dummy)
+
+endif()

@@ -1,0 +1,168 @@
+#! /usr/bin/env bash
+
+################################################################################
+# Functions
+################################################################################
+
+eecho()
+{
+	echo "$@" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+find_python()
+{
+	local name=
+	local python_path=
+	for name in python python3 python2; do
+		local path=$(type -P "$name") || path=
+		if [ -n "$path" ]; then
+			if [ -x "$path" ]; then
+				python_path="$path"
+				break
+			fi
+		fi
+	done
+	if [ -z "$python_path" ]; then
+		return 1
+	fi
+	echo "$python_path"
+}
+
+realpath()
+{
+	local path="$1"
+	"$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' \
+	  "$path"
+}
+
+usage()
+{
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+################################################################################
+# Command-Line Processing
+################################################################################
+
+self_canonpath="$(realpath "$0")" || \
+  panic "cannot get real path of program"
+self_dir="$(dirname "$self_canonpath")" || \
+  panic "cannot get directory of program"
+
+default_names=(clang++)
+
+verbose=0
+names=()
+path_spec=
+
+while getopts :vn:p: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	n)
+		names+=("$OPTARG");;
+	p)
+		path_spec="$OPTARG";;
+	\?)
+		usage "invalid option $option";;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ ${#names[@]} -eq 0 ]; then
+	names=("${default_names[@]}")
+fi
+if [ -z "$path_spec" ]; then
+	path_spec="$PATH"
+fi
+
+keys=("$@")
+
+################################################################################
+# Determine Clang Information
+################################################################################
+
+python_path="$(find_python)" || panic "cannot find python"
+
+sde_top_dir="$SDE_TOP_DIR"
+if [ -n "$sde_top_dir" ]; then
+	sde_top_dir="$(realpath "$sde_top_dir")" || \
+	  panic "realpath failed"
+fi
+
+if [ "$verbose" -ge 1 ]; then
+	eecho "path: $path_spec"
+fi
+
+IFS=":" read -a path <<< "$path_spec" || panic "cannot get search path"
+program_path=
+for dir in "${path[@]}"; do
+	if [ "$verbose" -ge 2 ]; then
+		eecho "CHECKING DIRECTORY: $dir"
+	fi
+	case "$dir" in
+	*ccache*)
+		if [ "$verbose" -ge 1 ]; then
+			eecho "SKIPPING CCACHE DIRECTORY: $dir"
+		fi
+		continue
+		;;
+	esac
+	if [ -n "$sde_top_dir" ]; then
+		path="$(realpath "$dir")" || panic "realpath failed"
+		if [ "$path" == "$sde_top_dir/bin" ]; then
+			if [ "$verbose" -ge 1 ]; then
+				eecho "SKIPPING DIRECTORY: $dir"
+			fi
+			continue
+		fi
+	fi
+	for name in "${names[@]}"; do
+		target="$dir/$name"
+		if [ -x "$target" ]; then
+			program_name="$name"
+			program_path="$target"
+			program_dir="$dir"
+			break 2
+		fi
+	done
+done
+
+for key in "${keys[@]}"; do
+
+	case "$key" in
+	name)
+		[ -n "$program_name" ] || \
+		  panic "could not determine value for key $key"
+		echo "$program_name"
+		;;
+	path)
+		[ -n "$program_path" ] || \
+		  panic "could not determine value for key $key"
+		echo "$program_path"
+		;;
+	dir)
+		[ -n "$program_dir" ] || \
+		  panic "could not determine value for key $key"
+		echo "$program_dir"
+		;;
+	*)
+		panic "invalid key $key"
+	esac
+
+done
+
+if [ "$verbose" -ge 1 ]; then
+	cat <<- EOF
+	program name: $program_name
+	program path: $program_path
+	program dir: $program_dir
+	EOF
+fi

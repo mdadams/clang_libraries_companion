@@ -1,0 +1,254 @@
+#! /usr/bin/env bash
+
+################################################################################
+# Functions
+################################################################################
+
+eecho()
+{
+	echo "$@" 1>&2
+}
+
+ecat()
+{
+	cat "$@" 1>&2
+}
+
+log()
+{
+	eecho "$(basename "$0"): $*"
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+find_python()
+{
+	local name=
+	local python_path=
+	for name in python python3 python2; do
+		local path=$(type -P "$name") || path=
+		if [ -n "$path" ]; then
+			if [ -x "$path" ]; then
+				python_path="$path"
+				break
+			fi
+		fi
+	done
+	if [ -z "$python_path" ]; then
+		return 1
+	fi
+	echo "$python_path"
+}
+
+realpath()
+{
+	local path="$1"
+	"$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' \
+	  "$path"
+}
+
+get_gcc_version()
+{
+	[ $# -eq 1 ] || return 1
+	local path="$1"
+	"$path" -dumpfullversion
+}
+
+usage()
+{
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+################################################################################
+# Command-Line Processing
+################################################################################
+
+# NOTE: The path of the python program must be set before realpath is used.
+python_path="$(find_python)" || panic "cannot find python"
+
+self_canonpath="$(realpath "$0")" || \
+  panic "cannot get real path of program"
+self_dir="$(dirname "$self_canonpath")" || \
+  panic "cannot get directory of program"
+
+default_names=(g++)
+
+verbose=0
+names=()
+path_spec=
+
+while getopts :vn:p: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	n)
+		names+=("$OPTARG");;
+	p)
+		path_spec="$OPTARG";;
+	\?)
+		usage "invalid option $option";;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ ${#names[@]} -eq 0 ]; then
+	names=("${default_names[@]}")
+fi
+if [ -z "$path_spec" ]; then
+	path_spec="$PATH"
+fi
+
+keys=("$@")
+
+################################################################################
+# Determine Clang Information
+################################################################################
+
+sde_top_dir="$SDE_TOP_DIR"
+if [ -n "$sde_top_dir" ]; then
+	sde_top_dir="$(realpath "$sde_top_dir")" || \
+	  panic "realpath failed"
+fi
+
+if [ "$verbose" -ge 1 ]; then
+	log "path: $path_spec"
+fi
+
+IFS=":" read -a path <<< "$path_spec" || panic "cannot get search path"
+program_path=
+for dir in "${path[@]}"; do
+	if [ "$verbose" -ge 2 ]; then
+		log "CHECKING DIRECTORY: $dir"
+	fi
+	case "$dir" in
+	*ccache*)
+		if [ "$verbose" -ge 1 ]; then
+			log "SKIPPING CCACHE DIRECTORY: $dir"
+		fi
+		continue
+		;;
+	esac
+	if [ -n "$sde_top_dir" ]; then
+		path="$(realpath "$dir")" || panic "realpath failed"
+		if [ "$path" == "$sde_top_dir/bin" ]; then
+			if [ "$verbose" -ge 1 ]; then
+				log "SKIPPING DIRECTORY: $dir"
+			fi
+			continue
+		fi
+	fi
+	for name in "${names[@]}"; do
+		target="$dir/$name"
+		if [ -x "$target" ]; then
+			new_program_path="$target"
+			new_program_canonpath="$(realpath "$new_program_path")" || \
+			  new_program_canonpath=
+			# Only break if the canonical path can be resolved.
+			if [ -n "$new_program_canonpath" ]; then
+				program_path="$new_program_path"
+				program_canonpath="$new_program_canonpath"
+				break 2
+			fi
+		fi
+	done
+done
+
+version=
+major_version=
+program_dir=
+
+if [ -n "$program_path" ]; then
+
+	version="$("$program_path" -dumpfullversion)" || \
+	  panic "cannot get version"
+	major_version="${version%%.*}"
+	machine="$("$program_path" -dumpmachine)" || \
+	  panic "cannot get machine"
+
+	#program_dir="$(dirname "$program_path")" || panic "dirname failed"
+	#program_dir="$(realpath "$program_dir")" || program_dir=
+
+	program_dir="$(dirname "$program_canonpath")" || panic "dirname failed"
+	#program_dir="$(realpath "$program_dir")" || program_dir=
+
+	if [ -n "$program_dir" ]; then
+		# Note: The order of the following list of directories is important.
+		# Look for the directory names based on $clang_version before
+		# the ones based on $clang_major_version.
+		dir_list=(
+			"$program_dir/../lib/gcc/$machine/$version/include"
+			"$program_dir/../lib64/gcc/$machine/$version/include"
+			"$program_dir/../lib/gcc/$machine/$major_version/include"
+			"$program_dir/../lib64/gcc/$machine/$major_version/include"
+			# The following are for Ubuntu but may not be needed:
+			#"/usr/include/gcc/*/$version/include"
+			#"/usr/include/gcc/*/$major_version/include"
+			# The following are for MacOS and Brew:
+			#"/usr/local/opt/gcc@$major_version/lib/gcc/*/$version/include"
+			#"/usr/local/opt/gcc@$major_version/lib/gcc/*/$major_version/include"
+		)
+		for dir in "${dir_list[@]}"; do
+			if [ "$verbose" -ge 1 ]; then
+				log "Checking for existence of directory $dir"
+			fi
+			if [ -d "$dir" ]; then
+				include_dir="$dir"
+				break
+			fi
+			include_dir=
+		done
+		if [ -n "$include_dir" ]; then
+			include_dir="$(realpath "$include_dir")"
+		fi
+	fi
+
+fi
+
+for key in "${keys[@]}"; do
+
+	case "$key" in
+	program_path)
+		[ -n "$program_path" ] || \
+		  panic "could not determine value for key $key"
+		echo "$program_path"
+		;;
+	program_dir)
+		[ -n "$program_dir" ] || \
+		  panic "could not determine value for key $key"
+		echo "$program_dir"
+		;;
+	version)
+		[ -n "$version" ] || \
+		  panic "could not determine value for key $key"
+		echo "$version"
+		;;
+	major_version)
+		[ -n "$major_version" ] || \
+		  panic "could not determine value for key $key"
+		echo "$major_version"
+		;;
+	include_dir)
+		[ -n "$version" ] || \
+		  panic "could not determine value for key $key"
+		echo "$include_dir"
+		;;
+	*)
+		panic "invalid key $key"
+	esac
+
+done
+
+if [ "$verbose" -ge 1 ]; then
+	ecat <<- EOF
+	program path: $program_path
+	program dir: $program_dir
+	version: $version
+	major version: $major_version
+	include dir: $include_dir
+	EOF
+fi

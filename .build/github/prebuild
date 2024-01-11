@@ -1,11 +1,62 @@
 #! /usr/bin/env bash
 
 ################################################################################
+# Utility Functions
+################################################################################
+
+eecho()
+{
+	echo "$@" 1>&2
+}
+
+warn()
+{
+	eecho "WARNING: $*"
+}
 
 panic()
 {
-	echo "ERROR: $*"
+	eecho "ERROR: $*"
 	exit 1
+}
+
+# append to colon-delimited list
+append_to_cd_list()
+{
+	[ $# -ge 1 ] || return 1
+	local list="$1"
+	shift 1
+	local item=
+	for item in "$@"; do
+		if [ -n "$list" ]; then
+			list="$list:$item"
+		else
+			list="$item"
+		fi
+	done
+	echo "$list"
+}
+
+parse_version()
+{
+	[ $# -eq 2 ] || return 1
+	local key="$1"
+	local version="$2"
+	grep -q -E '^([0-9]+)(\.[0-9]+)*$' <<< "$version" || return 1
+	local values=(${version//./ })
+	local index=
+	case "$key" in
+	major)
+		index=0;;
+	minor)
+		index=1;;
+	patch)
+		index=2;;
+	*)
+		return 1;;
+	esac
+	[ "$index" -lt ${#values[@]} ] || return 1
+	echo "${values[index]}"
 }
 
 list_directory_recursive()
@@ -20,12 +71,19 @@ list_directory()
 		options+=("$1")
 		shift 1
 	done
-	echo "directory: $1" || return 1
-    ls -l "${options[@]}" "$1" || return 1
+	local dir="$1"
+	local info=
+	if [ -h "$dir" ]; then
+		info="[symlink] "
+	fi
+	local newline=$'\n'
+    local buffer="$(ls -l "${options[@]}" "$dir" 2>&1)" || return 1
+	echo "${info}LISTING OF DIRECTORY: $dir$newline$buffer" || return 1
 }
 
 print_settings()
 {
+	local bash_path="$(type -P bash)"
 	local gcc_path="$(type -P gcc)"
 	local gxx_path="$(type -P g++)"
 	local clang_path="$(type -P clang)"
@@ -38,6 +96,13 @@ print_settings()
 	CPLUS_INCLUDE_PATH: $CPLUS_INCLUDE_PATH
 	C_INCLUDE_PATH: $C_INCLUDE_PATH
 	CPATH: $CPATH
+
+	bash path: $bash_path
+	$(ls -al $bash_path)
+	bash version:
+	----------
+	$($bash_path --version)
+	----------
 
 	gcc path: $gcc_path
 	$(ls -al $gcc_path)
@@ -78,6 +143,8 @@ realpath()
 }
 
 ################################################################################
+# Command-Line Processing
+################################################################################
 
 usage()
 {
@@ -88,8 +155,9 @@ usage()
 setup_file=
 verbose=0
 matrix_os=
+clang_major_version=17
 
-while getopts vs:c: option; do
+while getopts vs:c:C: option; do
 	case "$option" in
 	c)
 		setup_file="$OPTARG";;
@@ -97,88 +165,109 @@ while getopts vs:c: option; do
 		verbose=$((verbose + 1));;
 	s)
 		matrix_os="$OPTARG";;
+	C)
+		clang_major_version="$OPTARG";;
 	*)
-		usage "invalid option $option"
-		break
-		;;
+		usage "invalid option $option";;
 	esac
 done
 shift $((OPTIND - 1))
+
+################################################################################
+# Main
+################################################################################
 
 if [ "$verbose" -ge 2 ]; then
 	set -xv
 fi
 
-self_dir="$(dirname "$0")" || panic "dirname failed"
-self_dir="$(realpath "$self_dir")" || panic "realpath failed"
+self_canonpath="$(realpath "$0")" || panic "realpath failed"
+self_dir="$(dirname "$self_canonpath")" || panic "dirname failed"
 tmp_dir=/tmp
+
+top_dir="$self_dir/../.."
+
+clang_info="$top_dir/bin/clang_info"
+gcc_info="$top_dir/bin/gcc_info"
 
 if [ -z "$matrix_os" ]; then
 	panic "GitHub Actions matrix OS not specified"
 fi
 
-clang_version=15.0.7
-clang_major_version=15
-gcc_major_version=12
-
 setup_lines=()
 
-echo "PREBUILD MATRIX OS: $matrix_os"
+echo "prebuild matrix OS: $matrix_os"
 
 print_settings
+
+environ=()
 
 case "$matrix_os" in
 
 ubuntu-*)
 
+	add_packages=()
 	delete_packages=()
+	llvm_packages=()
 
-	llvm_packages=(
-		libllvm-15-ocaml-dev
-		libllvm15
-		llvm-15
-		llvm-15-dev
-		llvm-15-doc
-		llvm-15-examples
-		llvm-15-runtime
-		clang-15
-		clang-tools-15
-		clang-15-doc
-		libclang-common-15-dev
-		libclang-15-dev
-		libclang1-15
-		clang-format-15
-		python3-clang-15
-		clangd-15
-		clang-tidy-15
-		libfuzzer-15-dev
-		lldb-15
-		lld-15
-		libc++-15-dev
-		libc++abi-15-dev
-		libomp-15-dev
-		libclc-15-dev
-		libunwind-15-dev
-		libmlir-15-dev
-		mlir-15-tools
-		libbolt-15-dev
-		bolt-15
+	#clang_major_version=15
+	#clang_major_version=17
+
+	llvm_packages+=(
+		libllvm-${clang_major_version}-ocaml-dev
+		libllvm${clang_major_version}
+		llvm-${clang_major_version}
+		llvm-${clang_major_version}-dev
+		llvm-${clang_major_version}-doc
+		llvm-${clang_major_version}-examples
+		llvm-${clang_major_version}-runtime
+		clang-${clang_major_version}
+		clang-tools-${clang_major_version}
+		clang-${clang_major_version}-doc
+		libclang-common-${clang_major_version}-dev
+		libclang-${clang_major_version}-dev
+		libclang1-${clang_major_version}
+		clang-format-${clang_major_version}
+		python3-clang-${clang_major_version}
+		clangd-${clang_major_version}
+		clang-tidy-${clang_major_version}
+		libfuzzer-${clang_major_version}-dev
+		lldb-${clang_major_version}
+		lld-${clang_major_version}
+		libc++-${clang_major_version}-dev
+		libc++abi-${clang_major_version}-dev
+		libomp-${clang_major_version}-dev
+		libclc-${clang_major_version}-dev
+		libunwind-${clang_major_version}-dev
+		libmlir-${clang_major_version}-dev
+		mlir-${clang_major_version}-tools
+		libbolt-${clang_major_version}-dev
+		bolt-${clang_major_version}
+	)
+
+	add_packages+=(
+		libcurl4-openssl-dev
+		libedit-dev
+		libzstd-dev
+		libboost-all-dev
+		python3
 	)
 
 	case "$matrix_os" in
 
 	*-22.04)
+
 		repos=(
-			"deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-15 main"
+			"deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-${clang_major_version} main"
 		)
-		other_packages=(
-			gcc-11
-			libboost-all-dev
-			python3
+
+		gcc_major_version=12
+		add_packages+=(
+			gcc-"${gcc_major_version}"
+			g++-"${gcc_major_version}"
 		)
+
 		delete_packages+=(
-			gcc-12
-			g++-12
 			gcc-13
 			g++-13
 			libc++1-14
@@ -190,17 +279,22 @@ ubuntu-*)
 			python3-lldb-14
 			python3-lldb-15
 		)
+
 		;;
 
 	*-20.04)
+
 		repos=(
-			"deb http://apt.llvm.org/focal/ llvm-toolchain-focal-15 main"
+			"deb http://apt.llvm.org/focal/ llvm-toolchain-focal-${clang_major_version} main"
 		)
-		other_packages=(
-			gcc-10
-			libboost-all-dev
-			python3
+
+		#gcc_major_version=10
+		gcc_major_version=9
+		add_packages+=(
+			gcc-"${gcc_major_version}"
+			g++-"${gcc_major_version}"
 		)
+
 		;;
 
 	*)
@@ -210,16 +304,16 @@ ubuntu-*)
 	esac
 
 	if [ "${#delete_packages[@]}" -ne 0 ]; then
-		if [ 0 -ne 0 ]; then
+		if [ 1 -ne 0 ]; then
 			# Remove packages one at a time (for debugging).
 			for package in "${delete_packages[@]}"; do
 				echo "Removing package $package"
-				sudo apt-get --purge autoremove "$package" || \
-				  panic "cannot remove package $package"
+				sudo apt-get --purge autoremove -y "$package" || \
+				  warn "cannot remove package $package"
 			done
 		else
 			# Remove all packages at once.
-			sudo apt-get --purge autoremove "${delete_packages[@]}" || \
+			sudo apt-get --purge autoremove -y "${delete_packages[@]}" || \
 			  panic "cannot remove packages"
 		fi
 	fi
@@ -229,7 +323,7 @@ ubuntu-*)
 
 	for repo in "${repos[@]}"; do
 		echo "Adding APT repository: $repo"
-		sudo add-apt-repository "$repo" || \
+		sudo add-apt-repository -y "$repo" || \
 		  panic "add-apt-repository failed for $repo"
 	done
 
@@ -237,63 +331,122 @@ ubuntu-*)
 	sudo apt-get update || \
 	  panic "apt-get update failed"
 
-	echo "Installing packages: ${other_packages[*]}"
-	sudo apt-get install "${other_packages[@]}" "${llvm_packages[@]}" || \
+	echo "Installing packages: ${add_packages[*]} ${llvm_packages[*]}"
+	sudo apt-get install -y "${add_packages[@]}" "${llvm_packages[@]}" || \
 	  panic "apt-get install failed"
+
+	path="/usr/lib/llvm-$clang_major_version/bin:$PATH"
+	environ+=("PATH=$path")
+
+	cat <<- EOF
+	Clang information:
+	----------
+	$("$clang_info" -v -p "$path" -n clang++-"$clang_major_version" -n clang++)
+	----------
+	EOF
+
+	clang_version="$("$clang_info" -p "$path" \
+	  -n "clang++-$clang_major_version" -n clang++ version)" || \
+	  clang_version=
+	if [ -z "$clang_version" ]; then
+		clang_version=UNKNOWN
+	fi
 
 	case "$matrix_os" in
 	*-22.04)
 		if [ "$verbose" -ge 1 ]; then
 			list_directory    /usr/lib64
 			list_directory    /usr/lib
-			list_directory    /usr/lib/cmake/clang-15
-			list_directory -L /usr/lib/cmake/clang-15
-			list_directory    /lib/cmake/clang-15
-			list_directory -L /lib/cmake/clang-15
-			list_directory    /usr/include/llvm-15/llvm
-			list_directory    /usr/lib/llvm-15/lib
-			list_directory    /usr/lib/llvm-15/lib/clang
-			list_directory    /usr/lib/llvm-15/lib/clang/15
-			list_directory    /usr/lib/llvm-15/lib/clang/15.0.6
-			list_directory    /usr/lib/llvm-15/lib/cmake/llvm # CMake config
-			list_directory    /usr/lib/llvm-15/lib/cmake/clang
+			list_directory    /usr/lib/cmake/clang-${clang_major_version}
+			list_directory -L /usr/lib/cmake/clang-${clang_major_version}
+			list_directory    /lib/cmake/clang-${clang_major_version}
+			list_directory -L /lib/cmake/clang-${clang_major_version}
+			list_directory    /usr/include/llvm-${clang_major_version}/llvm
+			list_directory    /usr/lib/llvm-${clang_major_version}/lib
+			list_directory    /usr/lib/llvm-${clang_major_version}/lib/clang
+			list_directory    /usr/lib/llvm-${clang_major_version}/lib/clang/${clang_major_version}
+			list_directory    /usr/lib/llvm-${clang_major_version}/lib/clang/${clang_version}
+			list_directory    /usr/lib/llvm-${clang_major_version}/lib/cmake/llvm # CMake config
+			list_directory    /usr/lib/llvm-${clang_major_version}/lib/cmake/clang
 		fi
 	esac
+
+	gcc_cc_path="$("$gcc_info" -p "$path" -n gcc-$gcc_version \
+	  -n gcc-$gcc_major_version -n gcc program_path)" || \
+	  panic "cannot find gcc"
+	gcc_cxx_path="$("$gcc_info" -p "$path" -n g++-$gcc_version \
+	  -n g++-$gcc_major_version -n g++ program_path)" || \
+	  panic "cannot find g++"
+	gcc_bin_dir="$("$gcc_info" -p "$path" -n gcc-$gcc_version \
+	  -n gcc-$gcc_major_version -n gcc program_dir)" || \
+	  panic "cannot find gcc"
+
+	clang_cc_path="$("$clang_info" -p "$path" -n clang-$clang_version \
+	  -n clang-$clang_major_version -n clang program_path)" || \
+	  panic "cannot find clang"
+	clang_cxx_path="$("$clang_info" -p "$path" -n clang++-$clang_version \
+	  -n clang++-$clang_major_version -n clang++ program_path)" || \
+	  panic "cannot find clang++"
+	clang_bin_dir="$("$clang_info" -p "$path" -n clang++-$clang_version \
+	  -n clang++-$clang_major_version -n clang++ program_dir)" || \
+	  panic "cannot find clang++"
 
 	setup_lines+=("export PATH='/usr/lib/llvm-$clang_major_version/bin:$PATH'")
 	setup_lines+=("export CMAKE_PREFIX_PATH='/usr/lib/llvm-$clang_major_version/lib/cmake/llvm:$CMAKE_PREFIX_PATH'")
 	setup_lines+=("export LD_LIBRARY_PATH='/usr/lib/llvm-$clang_major_version/lib:$LD_LIBRARY_PATH'")
-	case "$CC" in
-	*clang*)
-		setup_lines+=("export CC=clang")
-		setup_lines+=("export CXX=clang++")
-		;;
-	*gcc*)
-		case "$matrix_os" in
-		*-20.04)
-			setup_lines+=("export CC=gcc-10")
-			setup_lines+=("export CXX=g++-10")
-			;;
-		esac
-		;;
-	esac
+	setup_lines+=("export 'CLANG_CC_PATH=$clang_cc_path'")
+	setup_lines+=("export 'CLANG_CXX_PATH=$clang_cxx_path'")
+	setup_lines+=("export 'GCC_CC_PATH=$gcc_cc_path'")
+	setup_lines+=("export 'GCC_CXX_PATH=$gcc_cxx_path'")
 
 	;;
 
 macos-*)
 
+	add_packages=()
+	delete_packages=()
+
+	#clang_major_version=17
+	gcc_major_version=12
+
+	add_packages+=(
+		boost
+		gcc@"${gcc_major_version}"
+		llvm@"${clang_major_version}"
+		cmake
+		make
+		#lit
+	)
+
 	#bin_dir="$self_dir/bin"
 	bin_dir="$tmp_dir/bin"
-	llvm_dir=/usr/local/opt/llvm@$clang_major_version
-	gcc_dir=/usr/local/opt/gcc@$gcc_major_version
+	gcc_dir="/usr/local/opt/gcc@$gcc_major_version"
 	gxx_program="$gcc_dir/bin/g++-$gcc_major_version"
 	gcc_program="$gcc_dir/bin/gcc-$gcc_major_version"
-	python_program=/usr/local/bin/python3
-	make_program=/usr/local/bin/make
-	cmake_program=/usr/local/bin/cmake
 
-	sdk_path="$(xcrun --show-sdk-path)" || panic
+	# NOTE:
+	# Let X.Y.Z denote the version of LLVM/Clang.
+	# The path /usr/local/opt/llvm is a symlink that points to
+	#   ../Cellar/llvm/X.Y.Z
+	# which resolves to
+	#   /usr/local/Cellar/llvm/X.Y.Z
+	# The path /usr/local/opt/llvm@X is a symlink that points to
+	#   ../Cellar/llvm/X.Y.Z
+	# which resolves to
+	#   /usr/local/Cellar/llvm/X.Y.Z
+	# The Clang include directory can be found at:
+	#   /usr/local/Cellar/llvm/X.Y.Z/lib/clang/X/include
 
+	candidate_clang_bin_dirs=(
+		/usr/local/opt/llvm@"$clang_major_version"/bin
+		/usr/local/Cellar/llvm/"$clang_major_version"/bin
+	)
+	candidate_clang_path=$(append_to_cd_list "" \
+	  "${candidate_clang_bin_dirs[@]}") || panic "cannot append to list"
+
+	sdk_path="$(xcrun --show-sdk-path)" || panic "xcrun failed"
+
+	# Create a bin directory for executables.
 	mkdir -p "$bin_dir" || \
 	  panic "cannot make directory $bin_dir"
 
@@ -312,31 +465,155 @@ macos-*)
 		  brew unlink python3 && \
 		  brew link --overwrite python3 || panic
 	fi
-	brew install boost || panic "brew install boost failed"
-	brew install gcc || panic "brew install gcc failed"
-	brew install llvm@15 || panic "brew install llvm failed"
-	brew install cmake || panic "brew install cmake failed"
-	brew install make || panic "brew install make failed"
-	#brew install lit || panic "brew install failed"
+	for package in "${add_packages[@]}"; do
+		echo "installing package $package"
+		brew install "$package" || panic "cannot install package $package"
+	done
 
-	list_directory -L /usr/local/Cellar/llvm/15/bin/clang
-	list_directory -L /usr/local/Cellar
-	list_directory  -L /usr/local/opt
-	#list_directory -L /usr/local/opt/llvm
-	#list_directory -L /usr/local/opt/clang
+	# NOTE:
+	# The make program is called "gmake" (in /usr/local/bin).
+	# The python program is called "python3" (in /usr/local/bin).
 
-	list_directory -L /usr/local/opt/llvm@15/bin
-	list_directory -L /usr/local/opt/llvm@15/include
-	list_directory -L /usr/local/opt/llvm@15/include/clang
-	#list_directory -L /usr/local/opt/llvm@15/include/clang/15.0.6
-	#list_directory -L /usr/local/opt/llvm@15/lib
-	#list_directory -L /usr/local/opt/llvm@15/lib/clang
-	list_directory -L /usr/local/opt/llvm@15/lib/clang/15.0.6/include
+	##########
+	list_directory /usr/local
+	list_directory /usr/local/bin
+	#list_directory /usr/local/opt/python
+	#list_directory /usr/local/opt/python/bin
+	#list_directory /usr/local/opt/python3
+	#list_directory /usr/local/opt/python3/bin
+	#list_directory /usr/local/opt/cmake
+	#list_directory /usr/local/opt/cmake/bin
+	#list_directory /usr/local/opt/make
+	#list_directory /usr/local/opt/make/bin
+	##########
 
-	list_directory -L /usr/local/opt/gcc@13
-	list_directory -L /usr/local/opt/gcc@13/bin
-	list_directory -L /usr/local/opt/gcc@12
-	list_directory -L /usr/local/opt/gcc@12/bin
+	# The following programs should have been installed above.
+	python_program=/usr/local/bin/python3
+	make_program=/usr/local/bin/gmake
+	#python_program=/usr/local/bin/python3
+	#cmake_program=/usr/local/bin/cmake
+
+	# Ensure that python can be run via a file named "python".
+	# NOTE: We cannot use realpath until after python is added to the
+	# search path.
+	ln -s "$python_program" "$bin_dir/python" || \
+	  panic "cannot create symbolic link for python"
+	ln -s "$make_program" "$bin_dir/make" || \
+	  panic "cannot create symbolic link for make"
+	##########
+	list_directory "$bin_dir"
+
+	# Modify the search path so that the necessary programs will be on the
+	# search path.
+	export PATH="$bin_dir:/usr/local/bin:$PATH"
+
+	# Perform a sanity check to ensure that certain key programs are
+	# available on the search path.
+	for file in python make cmake; do
+		program_path=$(type -P "$file") || panic "cannot find $file"
+	done
+
+	clang_bin_dir="$("$clang_info" -p "$candidate_clang_path:$PATH" \
+	  -n clang++"$clang_major_version" \
+	  -n clang++-"$clang_major_version" -n clang++ program_dir)" || \
+	  panic "cannot find clang"
+	llvm_dir="$(realpath "$clang_bin_dir/..")" || panic "realpath failed"
+
+	path="$bin_dir:$gcc_dir/bin:$llvm_dir/bin:$PATH"
+	environ+=("$path")
+
+	##########
+	list_directory "$llvm_dir"
+	list_directory "$llvm_dir/bin"
+	list_directory "$llvm_dir/lib"
+	list_directory "$llvm_dir/lib/cmake"
+	list_directory "$llvm_dir/lib/cmake/llvm"
+	list_directory "$llvm_dir/lib/cmake/clang"
+	list_directory "$llvm_dir/lib/clang/$clang_major_version"
+	list_directory "$llvm_dir/include/c++/v1"
+	##########
+	list_directory /usr/local/Cellar
+	list_directory /usr/local/Cellar/llvm
+	list_directory /usr/local/Cellar/llvm/$clang_major_version
+	list_directory /usr/local/Cellar/llvm/$clang_major_version/lib
+	##########
+	list_directory /usr/local/opt
+	list_directory /usr/local/opt/llvm
+	list_directory /usr/local/opt/llvm@$clang_major_version/lib
+	#list_directory /usr/local/opt/llvm@$clang_major_version/include
+	#list_directory /usr/local/opt/llvm@$clang_major_version/include/clang
+	#list_directory /usr/local/opt/llvm@${clang_major_version}/lib
+	#list_directory /usr/local/opt/llvm@${clang_major_version}/lib/clang
+	##########
+
+	cat <<- EOF
+	Clang information:
+	----------
+	$("$clang_info" -v -p "$path" -n clang++-"$clang_major_version" -n clang++)
+	----------
+	EOF
+
+	clang_include_dir="$("$clang_info" -v -v -v -p "$path" \
+	  -n clang++"$clang_major_version" -n clang++-"$clang_major_version" \
+	  -n clang++ include_dir)" || \
+	  panic "cannot determine Clang include directory"
+	echo "Clang include directory: $clang_include_dir"
+	##########
+	list_directory "$clang_include_dir"
+	##########
+
+	clang_cc_path="$("$clang_info" -p "$path" -n clang$clang_major_version \
+	  -n clang-$clang_major_version -n clang program_path)" || \
+	  panic "cannot find clang"
+	echo "clang path: $clang_cc_path"
+	clang_cxx_path="$("$clang_info" -p "$path" -n clang++$clang_major_version \
+	  -n clang++-$clang_major_version -n clang++ program_path)" || \
+	  panic "cannot find clang++"
+	echo "clang++ path: $clang_cxx_path"
+
+	clang_version="$("$clang_info" -p "$path" \
+	  -n clang++"$clang_major_version" -n clang++-"$clang_major_version" \
+	  -n clang++ version)" || \
+	  clang_version=
+	if [ -z "$clang_version" ]; then
+		clang_version=UNKNOWN
+		panic "could not determine Clang version"
+	fi
+	echo "clang version: $clang_version"
+
+	##########
+	list_directory "$llvm_dir/lib/clang/$clang_version"
+	list_directory "/usr/local/Cellar/llvm/$clang_version"
+	list_directory "/usr/local/Cellar/llvm/$clang_version/include"
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib"
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang"
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang/$clang_major_version"
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang/$clang_major_version"/include
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang/$clang_major_version"/lib
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang/$clang_major_version"/lib/clang
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang/$clang_major_version"/lib/clang/include
+	list_directory "/usr/local/Cellar/llvm/$clang_version/lib/clang/$clang_version"
+	#list_directory "/usr/local/opt/llvm@$clang_major_version/lib/clang/$clang_version/include"
+	#list_directory "/usr/local/opt/llvm@$clang_major_version/include/clang/$clang_version"
+	##########
+
+	gcc_cc_path="$("$gcc_info" -p "$path" -n gcc$gcc_major_version \
+	  -n gcc-$gcc_major_version -n gcc program_path)" || \
+	  panic "cannot find gcc"
+	echo "gcc path: $gcc_cc_path"
+	gcc_cxx_path="$("$gcc_info" -p "$path" -n g++$gcc_major_version \
+	  -n g++-$gcc_major_version -n g++ program_path)" || \
+	  panic "cannot find g++"
+	echo "g++ path: $gcc_cxx_path"
+	gcc_bin_dir="$("$gcc_info" -p "$path" -n gcc$gcc_major_version \
+	  -n gcc-$gcc_major_version -n gcc program_dir)" || \
+	  panic "cannot find gcc"
+	echo "gcc bin directory: $gcc_bin_dir"
+
+	##########
+	list_directory /usr/local/opt/gcc@${gcc_major_version}
+	list_directory /usr/local/opt/gcc@${gcc_major_version}/bin
+	##########
 
 	cat <<- EOF
 	python: $(type -P python)
@@ -344,33 +621,25 @@ macos-*)
 	python3: $(type -P python3)
 	EOF
 
-	list_directory -L /usr/local/opt/python
-	list_directory -L /usr/local/opt/python/bin
-	list_directory -L /usr/local/opt/python3
-	list_directory -L /usr/local/opt/python3/bin
-	list_directory -L /usr/local/opt/cmake
-	list_directory -L /usr/local/opt/cmake/bin
-	list_directory -L /usr/local/opt/make
-	list_directory -L /usr/local/opt/make/bin
+	#ln -s "$gcc_program" "$bin_dir/gcc" || \
+	#  panic "cannot create symbolic link for gcc"
+	#ln -s "$gxx_program" "$bin_dir/g++" || \
+	#  panic "cannot create symbolic link for g++"
 
-	ln -s "$gcc_program" "$bin_dir/gcc" || \
-	  panic "cannot create symbolic link for gcc"
-	ln -s "$gxx_program" "$bin_dir/g++" || \
-	  panic "cannot create symbolic link for g++"
-	ln -s "$python_program" "$bin_dir/python" || \
-	  panic "cannot create symbolic link for python"
-	ln -s "$cmake_program" "$bin_dir/cmake" || \
-	  panic "cannot create symbolic link for cmake"
-	ln -s "$make_program" "$bin_dir/make" || \
-	  panic "cannot create symbolic link for make"
-	list_directory -L "$bin_dir"
-
-	setup_lines+=("export PATH=$bin_dir:$gcc_dir/bin:$llvm_dir/bin:$PATH")
+	setup_lines+=("export PATH='$bin_dir:$gcc_dir/bin:$llvm_dir/bin:$PATH'")
 	setup_lines+=("export CMAKE_PREFIX_PATH='$llvm_dir/lib/cmake/llvm:$CMAKE_PREFIX_PATH'")
 	setup_lines+=("export LD_LIBRARY_PATH='$llvm_dir/lib:$LD_LIBRARY_PATH'")
-	#export CL_CLANG_INCLUDE_DIR="/usr/local/opt/llvm@$clang_major_version/lib/clang/$clang_version/include"
-	setup_lines+=("export CL_CLANG_INCLUDE_DIR='$llvm_dir/lib/clang/$clang_version/include'")
-	setup_lines+=("export CPLUS_INCLUDE_PATH='$llvm_dir/include/c++/v1:$llvm_dir/lib/clang/$clang_version/include:$sdk_path:$sdk_path/usr/include'")
+	setup_lines+=("export CL_CLANG_INCLUDE_DIR='$clang_include_dir'")
+	setup_lines+=("export CPLUS_INCLUDE_PATH='$llvm_dir/include/c++/v1:$clang_include_dir:$sdk_path:$sdk_path/usr/include'")
+
+	#setup_lines+=("export CL_CLANG_INCLUDE_DIR='$llvm_dir/lib/clang/$clang_version/include'")
+	#setup_lines+=("export CPLUS_INCLUDE_PATH='$llvm_dir/include/c++/v1:$llvm_dir/lib/clang/$clang_version/include:$sdk_path:$sdk_path/usr/include'")
+	####export CL_CLANG_INCLUDE_DIR="/usr/local/opt/llvm@$clang_major_version/lib/clang/$clang_version/include"
+
+	setup_lines+=("export 'CLANG_CC_PATH=$clang_cc_path'")
+	setup_lines+=("export 'CLANG_CXX_PATH=$clang_cxx_path'")
+	setup_lines+=("export 'GCC_CC_PATH=$gcc_cc_path'")
+	setup_lines+=("export 'GCC_CXX_PATH=$gcc_cxx_path'")
 
 	;;
 
@@ -380,8 +649,13 @@ macos-*)
 
 esac
 
+################################################################################
+# Setup File Generation
+################################################################################
+
 if [ -n "$setup_file" ]; then
-	echo -n > "$setup_file" || panic "cannot truncate setup file $setup_file"
+	echo -n > "$setup_file" || \
+	  panic "cannot truncate setup file $setup_file"
 	for line in "${setup_lines[@]}"; do
 		cat >> "$setup_file" <<< "$line" || \
 		  panic "cannot write setup file $setup_file"
@@ -395,6 +669,16 @@ if [ -n "$setup_file" ]; then
 	EOF
 fi
 
+################################################################################
+# Print Summary
+################################################################################
+
+for i in "${environ[@]}"; do
+	echo "ENV $i"
+done
+
+# NOTE: It is okay to change the environment, since we are about to exit.
+export "${environ[@]}"
 print_settings
 
 exit 0

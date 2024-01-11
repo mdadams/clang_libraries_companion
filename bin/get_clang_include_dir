@@ -1,0 +1,124 @@
+#! /usr/bin/env bash
+
+################################################################################
+# Functions
+################################################################################
+
+eecho()
+{
+	echo "$@" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+get_clang_version()
+{
+	local program="${1:-clang++}"
+	"$program" --version | awk '
+		(NR==1){
+			for (i = 1; i <= NF; ++i) {
+				if (tolower($i) == "version") {
+					++i;
+					print $i;
+					break;
+				}
+			}
+		}
+	'
+}
+
+usage()
+{
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+################################################################################
+# Command-Line Processing
+################################################################################
+
+self_canonpath="$(realpath "$0")" || \
+  panic "cannot get real path of program"
+self_dir="$(dirname "$self_canonpath")" || \
+  panic "cannot get directory of program"
+
+default_clang_major_versions=(17 16 15)
+
+clang_info="$self_dir/clang_info"
+clang_major_version="$CLANG_MAJOR_VERSIONS"
+
+verbose=0
+
+while getopts v option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	\?)
+		usage "invalid option $option";;
+	esac
+done
+shift $((OPTIND - 1))
+
+# For debugging only.
+#set -xv
+
+################################################################################
+# Determine Clang Include Directory
+################################################################################
+
+clang_major_versions=()
+if [ -n "$clang_major_version" ]; then
+	clang_major_versions=("$clang_major_version")
+fi
+if [ ${#clang_major_versions[@]} -eq 0 ]; then
+	clang_major_versions=("${default_clang_major_versions[@]}")
+fi
+
+clang_include_dir=
+
+if [ -z "$clang_include_dir" -a -n "$CL_CLANG_INCLUDE_DIR" ]; then
+	clang_include_dir="$CL_CLANG_INCLUDE_DIR"
+fi
+
+if [ -z "$clang_include_dir" ]; then
+
+	clang_program_path="$CL_CLANG_CXX_PATH"
+	if [ -z "$clang_program_path" ]; then
+		clang_program_path="$CLANG_CXX_PATH"
+	fi
+
+	if [ -z "$clang_program_path" ]; then
+		options=()
+		for clang_major_version in "${clang_major_versions[@]}"; do
+			options+=(
+				-n clang++"$clang_major_version"
+				-n clang++-"$clang_major_version"
+			)
+		done
+		clang_include_dir="$("$clang_info" \
+		  -p "$PATH" \
+		  "${options[@]}" \
+		  -n clang++ \
+		  include_dir)" || panic "clang_info failed"
+	else
+		clang_include_dir="$("$clang_info" \
+		  -P "$clang_program_path" \
+		  include_dir)" || \
+		  panic "clang_info failed"
+	fi
+
+fi
+
+if [ "$verbose" -ge 1 ]; then
+	eecho "expected clang include directory $clang_include_dir"
+fi
+
+if [ ! -d "$clang_include_dir" ]; then
+	panic "clang include directory not found ($clang_include_dir)"
+fi
+
+echo "$clang_include_dir"

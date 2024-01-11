@@ -5,7 +5,6 @@ project(diagnostic_consumer LANGUAGES CXX C)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
-include(ClangSetup)
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
@@ -13,25 +12,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-find_package(LLVM REQUIRED CONFIG)
-find_package(Clang REQUIRED CONFIG)
-find_package(Fmt)
-if(TARGET Fmt::Fmt)
-	link_libraries(Fmt::Fmt)
-endif()
-
-llvm_map_components_to_libnames(llvm_libs all)
-cl_get_clang_libs(clang_libs)
-
-# If Clang was built with RTTI disabled, then disable RTTI (to avoid linker
-# errors caused by undefined references related to typeinfo).
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+find_package(ClangFoo REQUIRED)
+include(CheckStdFormat)
+import_std_format()
 
 add_executable(tool main.cpp)
 list(APPEND all_targets tool)
-target_link_libraries(tool PRIVATE ${llvm_libs} ${clang_libs})
-target_include_directories(tool PRIVATE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(tool PRIVATE ${LLVM_DEFINITIONS})
+target_link_libraries(tool PRIVATE ClangFoo::llvm ClangFoo::clangcpp)
 
 set(test_sources
 	data/invalid_1.cpp

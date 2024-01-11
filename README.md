@@ -66,8 +66,8 @@ The code examples have the following software dependencies:
 
   - CMake
   - Make
-  - version 15 of LLVM/Clang
-  - GCC (if application programs are to be build with GCC)
+  - version 15, 16, or 17 of LLVM/Clang
+  - GCC (if application programs are to be built with GCC)
   - Boost
   - Python
   - numerous basic Unix utilities such as bash, awk, grep, and so on
@@ -82,6 +82,11 @@ provides a standard library header called "format" and places a few key
 declarations in the std namespace in that header.)  The C++ standard
 library included with version 13 and above of GCC has support for
 std::format.
+
+For convenience, a Dockerfile is provided in order to build a
+containerized environment that includes all of the necessary software
+dependencies.  More information on this Dockerfile is provided in
+a later section.
 
 Building the Software
 ---------------------
@@ -174,11 +179,58 @@ cyclomatic_complexity project, use the command:
 
     slides/examples/tmp_build/cyclomatic_complexity/demo
 
+Podman/Docker Containerized Demonstration Environment
+-----------------------------------------------------
+
+A Dockerfile is provided that can be used to create a Podman/Docker
+container with all of the necessary software dependencies for building
+and running the code examples in this repository.  Instructions are
+given below on how to use this containerized environment.  Although these
+instructions use (rootless) podman, the podman and docker programs have
+almost identical command-line interfaces.  So, it should be possible to
+substitute "docker" for "podman" in the instructions.
+
+Let $TOP_DIR denote the top-level directory of the working tree of the
+cloned Git repository (i.e., the directory that contains the file named
+README.md which you are currently reading).  Note that $TOP_DIR should
+be an absolute path.
+
+1. Set the working directory to the top-level directory of the working
+   tree using the command:
+
+       cd $TOP_DIR
+
+2. Build the container using the command:
+
+       podman build --tag cl-demo - < podman/Dockerfile
+
+3. Create a temporary instance of the container and run a Bash shell in the
+   container using the command:
+
+       podman run -i -t --rm -v $TOP_DIR:$TOP_DIR:rw -w $TOP_DIR \
+         --cap-add=SYS_PTRACE --security-opt label=disable \
+         cl-demo /bin/bash
+
+   Note that the "--cap-add" and "--security-opt" options may not be
+   needed.
+
+   If you do not want the container to be deleted after the Bash shell
+   is exited, omit the "--rm" option.
+
+4. Proceed to build and run the demo scripts as described in detail in
+   an earlier section.  For example, one might invoke the following
+   command from the Bash shell running in the container:
+
+       ./build --defaults
+
 Remarks on the Use of Address Sanitizer (ASan)
 ----------------------------------------------
 
 Sometimes the use of Address Sanitizer (ASan) can be problematic, due,
 for example, to quirks in the platform on which the code is being run.
+The runtime behavior of ASan can be controlled via the environment
+variable ASAN_OPTIONS, whose value is a colon-separated list of
+key-value pairs (e.g., "verbosity=1:detect_leaks=0").
 
 On some platforms, some of the libraries used by the code examples
 have been observed to have memory leaks.  If ASan complains about some

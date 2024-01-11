@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        #os: [ubuntu-22.04, ubuntu-20.04, macos-12, macos-11]
+        #os: [ubuntu-22.04, ubuntu-20.04, macos-13, macos-12, macos-11]
         #compiler: [ {cc: gcc, cxx: g++}, {cc: clang, cxx: clang++} ]
         include:
           - os: ubuntu-22.04
@@ -29,18 +29,18 @@ jobs:
             compiler:
               cc: clang
               cxx: clang++
-          - os: macos-12
-            compiler:
-              cc: clang
-              cxx: clang++
-          ##- os: macos-12
+          ##- os: macos-13
           ##  compiler:
           ##    cc: gcc
           ##    cxx: g++
-          ##- os: macos-11
-          ##  compiler:
-          ##    cc: clang
-          ##    cxx: clang++
+          ####- os: macos-12
+          ####  compiler:
+          ####    cc: clang
+          ####    cxx: clang++
+          ####- os: macos-12
+          ####  compiler:
+          ####    cc: gcc
+          ####    cxx: g++
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -52,8 +52,8 @@ jobs:
     ############################################################
     - name: testing
       env:
-        CC: ${{ matrix.compiler.cc }}
-        CXX: ${{ matrix.compiler.cxx }}
+        COMPILER_CC: ${{ matrix.compiler.cc }}
+        COMPILER_CXX: ${{ matrix.compiler.cxx }}
       shell: bash
       run: .build/github/build -v -s ${{ matrix.os }} -c '${{runner.temp}}'/setup
     ############################################################

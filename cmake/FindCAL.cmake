@@ -1,12 +1,16 @@
 find_path(
   CAL_INCLUDE_DIR
   cal/main.hpp
+  PATHS $ENV{CAL_ROOT_DIR}/include
   )
 mark_as_advanced(CAL_INCLUDE_DIR)
 
 find_library(
   CAL_LIBRARY
   NAMES cal
+  PATHS
+  $ENV{CAL_ROOT_DIR}/lib
+  $ENV{CAL_ROOT_DIR}/lib64
   )
 mark_as_advanced(CAL_LIBRARY)
 
