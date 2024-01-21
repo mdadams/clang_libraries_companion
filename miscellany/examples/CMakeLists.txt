@@ -101,6 +101,8 @@ list(APPEND installable_project_dirs
 # A list of project directories that do not have demo targets.
 list(APPEND nondemoable_project_dirs
   jsontool
+  #lib_use_analyzer
+  #dump_type
 )
 
 # Add each project as an external project.

@@ -244,6 +244,11 @@ ubuntu-*)
 		libbolt-${clang_major_version}-dev
 		bolt-${clang_major_version}
 	)
+	if [ "$clang_major_version" -ge 16 ]; then
+		llvm_packages+=(
+			libpolly-${clang_major_version}-dev
+		)
+	fi
 
 	add_packages+=(
 		libcurl4-openssl-dev

@@ -1,32 +1,25 @@
 #[=[
 ################################################################################
 
-After much pain and suffering, I have concluded that one or more of the
-following assertions must be true:
-
-  1) The LLVM/Clang CMake config files do not work very well for building
-  code outside the LLVM source tree.
-
-  2) Some LLVM/Clang packages for some Unix/Linux variants are broken.
-  It is possible that LLVM/Clang might be at fault in some cases.
-
-  3) I am having some basic misunderstandings about CMake and/or how
-  one can correctly build LLVM/Clang code outside the LLVM source tree.
-
-I suspect that there may be an element of truth to all three of the
-preceding items.  This CMake find module is intended to help in dealing
-with some of the issues that have arisen as a consequence of the items
-listed above.
+The build process for the LLVM/Clang software is extremely flexible,
+with many configuration parameters.  For this reason, the number of very
+different ways in which an installation of this software can be configured
+is practically limitless.  This makes using this software somewhat
+painful, as it may exhibit many different modes of behavior, depending
+on how it was configured at the time that it was built.  This leads to
+a significant amount of boilerplate being needed in CMakeLists.txt files
+for software using the LLVM/Clang libraries.
 
 This CMake find module is an attempt to allow the LLVM and Clang packages
-to be found more easily and used with less boilerplate.  This module seems
-to work reasonably well in the environments in which it has been tested.
-These environments tend to use a single shared library for each of the
-LLVM and Clang C++ (i.e., clang-cpp) library code.  How well this works
-for other configurations is somewhat of an open question.  There are just
-so many ways in which the LLVM/Clang libraries can be built and installed.
-It is doubtful that anyone could ever handle all of the possibilities
-correctly.  Hopefully, this covers the more common cases reasonably well.
+to be found more easily and used with less boilerplate.  This module
+is primarily intended to be used with LLVM/Clang configurations that
+employ a single shared library for each of the LLVM and Clang C++ (i.e.,
+clang-cpp) library code.  This type of configuration is quite commonly
+used by Linux distributions.  This CMake module may not work so well for
+other kinds of configurations of LLVM/Clang.  The LLVM/Clang libraries
+can be built and installed in so many ways that correctly handling all of
+the possibilities in a clean and simple manner is likely not achievable.
+Hopefully, this covers the more common cases reasonably well.
 
 The inputs to this find module are as follows:
 
@@ -46,27 +39,57 @@ ClangFoo_USE_CLANGCPP_COMPONENTS
 This is a boolean indicating if the Clang C++ component libraries should
 be used (instead of the single combined clang-cpp library).
 
+Generally, it is recommended that the default values for the
+above variables be used, unless this causes problems.
+
 The following imported targets are provided:
 
   ClangFoo::llvm
   ClangFoo::clangcpp
 
-Some other targets are also provided, but their use is discouraged.
+Some other targets are also provided (which are deliberately
+undocumented), but their use is discouraged.
 
 Michael Adams
-2024-01-08
+2024-01-21
 
 ################################################################################
 #]=]
 
 ################################################################################
+# Helper Macros and Functions
+################################################################################
+
+MACRO(ClangFoo_ASSIGN_TO_BOOL var)
+	IF(${ARGN})
+		SET(${var} TRUE)
+	else()
+		SET(${var} FALSE)
+	ENDIF()
+ENDMACRO()
+
+FUNCTION(ClangFoo_MESSAGE)
+	LIST(APPEND CMAKE_MESSAGE_INDENT "[ClangFoo] ")
+	MESSAGE(${ARGN})
+	LIST(POP_BACK CMAKE_MESSAGE_INDENT)
+ENDFUNCTION()
+
+################################################################################
+
+##########
+IF((NOT DEFINED ClangFoo_FOUND) OR (NOT ClangFoo_FOUND)) # GUARD
+##########
+
+################################################################################
 
 IF(ClangFoo_FOUND)
-	MESSAGE(WARNING "ClangFoo package find operation performed multiple times")
+	ClangFoo_MESSAGE(WARNING "ClangFoo package find operation performed multiple times")
 ENDIF()
 
 ################################################################################
 
+# The following is for debugging/testing:
+#SET(ClangFoo_VERBOSE TRUE)
 SET(ClangFoo_VERBOSE FALSE)
 
 FIND_PACKAGE(LLVM CONFIG)
@@ -80,100 +103,128 @@ FIND_PACKAGE(Clang CONFIG)
 #SET(ClangFoo_USE_LLVM_COMPONENTS TRUE)
 #SET(ClangFoo_USE_CLANGCPP_COMPONENTS FALSE)
 
-MESSAGE(STATUS "LLVM_VERSION: ${LLVM_VERSION}")
+################################################################################
+# Print various information for debugging purposes.
+################################################################################
 
-SET(clangfoo_found_llvm_lib FALSE)
+ClangFoo_MESSAGE(STATUS "LLVM_VERSION: ${LLVM_VERSION}")
+
+# Print the value of LLVM_LINK_LLVM_DYLIB for debugging.
 IF(NOT DEFINED LLVM_LINK_LLVM_DYLIB)
-	SET(clangfoo_llvm_link_llvm_dylib_status "undefined")
+	SET(ClangFoo_status "undefined")
 ELSEIF(LLVM_LINK_LLVM_DYLIB)
-	SET(clangfoo_llvm_link_llvm_dylib_status "1")
-	IF(TARGET LLVM)
-		SET(clangfoo_found_llvm_lib TRUE)
-	ENDIF()
+	SET(ClangFoo_status "true")
 ELSE()
-	SET(clangfoo_llvm_link_llvm_dylib_status "0")
+	SET(ClangFoo_status "false")
 ENDIF()
-MESSAGE(STATUS
-  "LLVM_LINK_LLVM_DYLIB: ${clangfoo_llvm_link_llvm_dylib_status}")
+ClangFoo_MESSAGE(STATUS "LLVM_LINK_LLVM_DYLIB: ${ClangFoo_status}")
 
-SET(clangfoo_found_clangcpp_lib FALSE)
+# Print the value of CLANG_LINK_CLANG_DYLIB for debugging.
 IF(NOT DEFINED CLANG_LINK_CLANG_DYLIB)
-	SET(clangfoo_clang_link_clang_dylib_status "undefined")
+	SET(ClangFoo_status "undefined")
 ELSEIF(CLANG_LINK_CLANG_DYLIB)
-	SET(clangfoo_clang_link_clang_dylib_status "1")
-	IF(TARGET clang-cpp)
-		SET(clangfoo_found_clangcpp_lib TRUE)
-	ENDIF()
+	SET(ClangFoo_status "true")
 ELSE()
-	SET(clangfoo_clang_link_clang_dylib_status "0")
+	SET(ClangFoo_status "false")
 ENDIF()
-MESSAGE(STATUS
-  "CLANG_LINK_CLANG_DYLIB: ${clangfoo_clang_link_clang_dylib_status}")
-MESSAGE(STATUS "found LLVM: ${clangfoo_found_llvm_lib}")
-MESSAGE(STATUS "found clang-cpp: ${clangfoo_found_clangcpp_lib}")
+ClangFoo_MESSAGE(STATUS "CLANG_LINK_CLANG_DYLIB: ${ClangFoo_status}")
 
-SET(clangfoo_found_clangcpp_target FALSE)
-IF(TARGET clang-cpp)
-	SET(clangfoo_found_clangcpp_target TRUE)
-ENDIF()
-SET(clangfoo_found_llvm_target FALSE)
-IF(TARGET LLVM)
-	SET(clangfoo_found_llvm_target TRUE)
-ENDIF()
-MESSAGE(STATUS "TARGET clang-cpp: ${clangfoo_found_clangcpp_target}")
-MESSAGE(STATUS "TARGET LLVM: ${clangfoo_found_llvm_target}")
+ClangFoo_ASSIGN_TO_BOOL(ClangFoo_found_llvm_target TARGET LLVM)
+ClangFoo_MESSAGE(STATUS "TARGET LLVM: ${ClangFoo_found_llvm_target}")
 
-IF(NOT DEFINED ClangFoo_USE_LLVM_COMPONENTS)
-	IF(DEFINED ENV{ClangFoo_USE_LLVM_COMPONENTS})
-		SET(ClangFoo_USE_LLVM_COMPONENTS $ENV{ClangFoo_USE_LLVM_COMPONENTS})
-		MESSAGE(STATUS "ClangFoo_USE_LLVM_COMPONENTS set from environment")
-	ENDIF()
-ENDIF()
-IF(NOT DEFINED ClangFoo_USE_CLANGCPP_COMPONENTS)
-	IF(DEFINED ENV{ClangFoo_USE_CLANGCPP_COMPONENTS})
-		SET(ClangFoo_USE_CLANGCPP_COMPONENTS
-		  $ENV{ClangFoo_USE_CLANGCPP_COMPONENTS})
-		MESSAGE(STATUS "ClangFoo_USE_CLANGCPP_COMPONENTS set from environment")
-	ENDIF()
+ClangFoo_ASSIGN_TO_BOOL(ClangFoo_found_clangcpp_target TARGET clang-cpp)
+ClangFoo_MESSAGE(STATUS "TARGET clang-cpp: ${ClangFoo_found_clangcpp_target}")
+
+################################################################################
+# Select default values for some key settings.
+################################################################################
+
+SET(ClangFoo_PROPAGATE_ENABLE_RTTI_DEFAULT TRUE)
+
+SET(ClangFoo_PROPAGATE_ENABLE_EH_DEFAULT FALSE)
+
+ClangFoo_ASSIGN_TO_BOOL(ClangFoo_found_llvm_lib
+  (TARGET LLVM) AND (DEFINED LLVM_LINK_LLVM_DYLIB) AND LLVM_LINK_LLVM_DYLIB)
+ClangFoo_ASSIGN_TO_BOOL(ClangFoo_USE_LLVM_COMPONENTS_DEFAULT
+  NOT ${ClangFoo_found_llvm_lib})
+
+ClangFoo_ASSIGN_TO_BOOL(ClangFoo_found_clangcpp_lib
+  (TARGET clang-cpp) AND (DEFINED CLANG_LINK_CLANG_DYLIB) AND
+  CLANG_LINK_CLANG_DYLIB)
+ClangFoo_ASSIGN_TO_BOOL(ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT
+  NOT ${ClangFoo_found_clangcpp_lib})
+
+ClangFoo_MESSAGE(STATUS "found libLLVM: ${ClangFoo_found_llvm_lib}")
+ClangFoo_MESSAGE(STATUS "found libclang-cpp: ${ClangFoo_found_clangcpp_lib}")
+
+ClangFoo_MESSAGE(STATUS "ClangFoo_USE_LLVM_COMPONENTS_DEFAULT: "
+  "${ClangFoo_USE_LLVM_COMPONENTS_DEFAULT}")
+ClangFoo_MESSAGE(STATUS "ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT: "
+  "${ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT}")
+
+################################################################################
+# Initialize some key variables with values taken from the environment
+# if appropriate.
+################################################################################
+
+IF((NOT DEFINED ClangFoo_USE_LLVM_COMPONENTS) AND
+  (DEFINED ENV{ClangFoo_USE_LLVM_COMPONENTS}))
+	SET(ClangFoo_USE_LLVM_COMPONENTS $ENV{ClangFoo_USE_LLVM_COMPONENTS})
+	ClangFoo_MESSAGE(STATUS
+	  "ClangFoo_USE_LLVM_COMPONENTS set from environment")
 ENDIF()
 
-IF(NOT DEFINED ClangFoo_PROPAGATE_ENABLE_RTTI)
-	IF(DEFINED ENV{ClangFoo_PROPAGATE_ENABLE_RTTI})
-		SET(ClangFoo_PROPAGATE_ENABLE_RTTI $ENV{ClangFoo_PROPAGATE_ENABLE_RTTI})
-		MESSAGE(STATUS "ClangFoo_PROPAGATE_ENABLE_RTTI set from environment")
-	ENDIF()
-ENDIF()
-IF(NOT DEFINED ClangFoo_PROPAGATE_ENABLE_EH)
-	IF(DEFINED ENV{ClangFoo_PROPAGATE_ENABLE_EH})
-		SET(ClangFoo_PROPAGATE_ENABLE_EH $ENV{ClangFoo_PROPAGATE_ENABLE_EH})
-		MESSAGE(STATUS "ClangFoo_PROPAGATE_ENABLE_EH set from environment")
-	ENDIF()
+IF((NOT DEFINED ClangFoo_USE_CLANGCPP_COMPONENTS) AND
+  (DEFINED ENV{ClangFoo_USE_CLANGCPP_COMPONENTS}))
+	SET(ClangFoo_USE_CLANGCPP_COMPONENTS
+	  $ENV{ClangFoo_USE_CLANGCPP_COMPONENTS})
+	ClangFoo_MESSAGE(STATUS
+	  "ClangFoo_USE_CLANGCPP_COMPONENTS set from environment")
 ENDIF()
 
-SET(ClangFoo_USE_LLVM_COMPONENTS_DEFAULT FALSE)
-SET(ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT FALSE)
-
-IF(NOT DEFINED ClangFoo_PROPAGATE_ENABLE_RTTI)
-	SET(ClangFoo_PROPAGATE_ENABLE_RTTI TRUE)
+IF((NOT DEFINED ClangFoo_PROPAGATE_ENABLE_RTTI) AND 
+  (DEFINED ENV{ClangFoo_PROPAGATE_ENABLE_RTTI}))
+	SET(ClangFoo_PROPAGATE_ENABLE_RTTI $ENV{ClangFoo_PROPAGATE_ENABLE_RTTI})
+	ClangFoo_MESSAGE(STATUS
+	  "ClangFoo_PROPAGATE_ENABLE_RTTI set from environment")
 ENDIF()
-MESSAGE(STATUS
-  "ClangFoo_PROPAGATE_ENABLE_RTTI: ${ClangFoo_PROPAGATE_ENABLE_RTTI}")
-IF(NOT DEFINED ClangFoo_PROPAGATE_ENABLE_EH)
-	SET(ClangFoo_PROPAGATE_ENABLE_EH FALSE)
-ENDIF()
-MESSAGE(STATUS "ClangFoo_PROPAGATE_ENABLE_EH: ${ClangFoo_PROPAGATE_ENABLE_EH}")
 
+IF((NOT DEFINED ClangFoo_PROPAGATE_ENABLE_EH) AND
+  (DEFINED ENV{ClangFoo_PROPAGATE_ENABLE_EH}))
+	SET(ClangFoo_PROPAGATE_ENABLE_EH $ENV{ClangFoo_PROPAGATE_ENABLE_EH})
+	ClangFoo_MESSAGE(STATUS
+	  "ClangFoo_PROPAGATE_ENABLE_EH set from environment")
+ENDIF()
+
+################################################################################
+# Initialize some key variables to default values if appropriate.
 ################################################################################
 
 IF(NOT DEFINED ClangFoo_USE_LLVM_COMPONENTS)
 	SET(ClangFoo_USE_LLVM_COMPONENTS ${ClangFoo_USE_LLVM_COMPONENTS_DEFAULT})
 ENDIF()
-MESSAGE(STATUS "ClangFoo_USE_LLVM_COMPONENTS: ${ClangFoo_USE_LLVM_COMPONENTS}")
+ClangFoo_MESSAGE(STATUS
+  "ClangFoo_USE_LLVM_COMPONENTS: ${ClangFoo_USE_LLVM_COMPONENTS}")
+
 IF(NOT DEFINED ClangFoo_USE_CLANGCPP_COMPONENTS)
-	SET(ClangFoo_USE_CLANGCPP_COMPONENTS ${ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT})
+	SET(ClangFoo_USE_CLANGCPP_COMPONENTS
+	  ${ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT})
 ENDIF()
-MESSAGE(STATUS
+ClangFoo_MESSAGE(STATUS
   "ClangFoo_USE_CLANGCPP_COMPONENTS: ${ClangFoo_USE_CLANGCPP_COMPONENTS}")
+
+IF(NOT DEFINED ClangFoo_PROPAGATE_ENABLE_RTTI)
+	SET(ClangFoo_PROPAGATE_ENABLE_RTTI
+	  ${ClangFoo_PROPAGATE_ENABLE_RTTI_DEFAULT})
+ENDIF()
+ClangFoo_MESSAGE(STATUS
+  "ClangFoo_PROPAGATE_ENABLE_RTTI: ${ClangFoo_PROPAGATE_ENABLE_RTTI}")
+
+IF(NOT DEFINED ClangFoo_PROPAGATE_ENABLE_EH)
+	SET(ClangFoo_PROPAGATE_ENABLE_EH ${ClangFoo_PROPAGATE_ENABLE_EH_DEFAULT})
+ENDIF()
+ClangFoo_MESSAGE(STATUS
+  "ClangFoo_PROPAGATE_ENABLE_EH: ${ClangFoo_PROPAGATE_ENABLE_EH}")
 
 ################################################################################
 
@@ -183,12 +234,12 @@ SET(ClangFoo_FOUND FALSE)
 
 IF(ClangFoo_FIND_REQUIRED AND NOT (LLVM_FOUND AND Clang_FOUND))
 	IF(NOT LLVM_FOUND)
-		MESSAGE(STATUS "LLVM not found")
+		ClangFoo_MESSAGE(STATUS "LLVM package not found")
 	ENDIF()
 	IF(NOT Clang_FOUND)
-		MESSAGE(STATUS "Clang not found")
+		ClangFoo_MESSAGE(STATUS "Clang package not found")
 	ENDIF()
-	MESSAGE(FATAL_ERROR "ClangFoo not found")
+	ClangFoo_MESSAGE(FATAL_ERROR "ClangFoo find failed")
 ENDIF()
 
 FIND_LIBRARY(LibEdit_LIBRARY NAMES edit)
@@ -225,9 +276,10 @@ IF(LLVM_FOUND AND Clang_FOUND)
 	# this choice.
 	IF(ClangFoo_PROPAGATE_ENABLE_RTTI)
 		IF(NOT LLVM_ENABLE_RTTI)
+			# NOTE/TODO: This compiler option is GCC/Clang specific.
 			SET(clangfoo_options ${clangfoo_options} -fno-rtti)
 			IF (Clangfoo_VERBOSE)
-				MESSAGE(STATUS "disabling RTTI")
+				ClangFoo_MESSAGE(STATUS "disabling RTTI")
 			ENDIF()
 		ENDIF()
 	ENDIF()
@@ -235,9 +287,10 @@ IF(LLVM_FOUND AND Clang_FOUND)
 	# this choice.
 	IF(ClangFoo_PROPAGATE_ENABLE_EH)
 		IF(NOT LLVM_ENABLE_EH)
+			# NOTE/TODO: This compiler option is GCC/Clang specific.
 			SET(clangfoo_options ${clangfoo_options} -fno-exceptions)
 			IF (Clangfoo_VERBOSE)
-				MESSAGE(STATUS "disabling EH")
+				ClangFoo_MESSAGE(STATUS "disabling EH")
 			ENDIF()
 		ENDIF()
 	ENDIF()
@@ -253,7 +306,7 @@ IF(LLVM_FOUND AND Clang_FOUND)
 	FOREACH(item ${LLVM_AVAILABLE_LIBS})
 
 		IF(NOT TARGET ${item})
-			MESSAGE(STATUS "LLVM: skipping non-target ${item}")
+			ClangFoo_MESSAGE(STATUS "LLVM: skipping non-target ${item}")
 			CONTINUE()
 		ENDIF()
 
@@ -273,27 +326,48 @@ IF(LLVM_FOUND AND Clang_FOUND)
 		SET_TARGET_PROPERTIES(ClangFoo::llvm::${item} PROPERTIES
 		  INTERFACE_LINK_LIBRARIES ${item})
 
-		GET_TARGET_PROPERTY(TARGET_TYPE ${item} TYPE)
-		SET(clangfoo_selected TRUE)
-		IF(item STREQUAL "LLVMLineEditor" AND NOT LibEdit_FOUND)
+		GET_TARGET_PROPERTY(ClangFoo_target_type ${item} TYPE)
+		IF(item MATCHES "^LLVM[A-Z].*$")
+		#IF(TRUE)
+			SET(clangfoo_selected TRUE)
+			IF(item STREQUAL "LLVMLineEditor" AND NOT LibEdit_FOUND)
+				SET(clangfoo_selected FALSE)
+			ENDIF()
+		ELSE()
 			SET(clangfoo_selected FALSE)
 		ENDIF()
-		IF(clangfoo_selected AND (TARGET_TYPE STREQUAL "STATIC_LIBRARY"))
+		IF(clangfoo_selected AND
+		  (ClangFoo_target_type STREQUAL "STATIC_LIBRARY"))
 			IF(ClangFoo_VERBOSE)
-				MESSAGE(STATUS "LLVM: found component ${item}")
+				ClangFoo_MESSAGE(STATUS "LLVM: found component ${item}")
 			ENDIF()
-			LIST(APPEND clangfoo_llvm_comps ${item})
+			LIST(APPEND clangfoo_llvm_comps "${item}")
+		ELSE()
+			IF(ClangFoo_VERBOSE)
+				ClangFoo_MESSAGE(STATUS "LLVM: skipping component ${item}")
+			ENDIF()
 		ENDIF()
 
 	ENDFOREACH()
+
+	IF(ClangFoo_VERBOSE)
+		ClangFoo_MESSAGE(STATUS "LLVM components: ${clangfoo_llvm_comps}")
+	ENDIF()
 	LIST(LENGTH clangfoo_llvm_comps clangfoo_llvm_num_comps)
+	#ClangFoo_ASSIGN_TO_BOOL(ClangFoo_USE_LLVM_COMPONENTS_DEFAULT
+	#  clangfoo_llvm_num_comps GREATER 0)
+	#IF(NOT DEFINED ClangFoo_USE_LLVM_COMPONENTS)
+	#	SET(ClangFoo_USE_LLVM_COMPONENTS
+	#	  ${ClangFoo_USE_LLVM_COMPONENTS_DEFAULT})
+	#ENDIF()
 
 	############################################################
 	# Create ClangFoo::llvm_components target.
 	############################################################
 
-	IF(clangfoo_llvm_num_comps EQUAL 0)
-		MESSAGE(WARNING "forcing ClangFoo_USE_LLVM_COMPONENTS to FALSE")
+	IF(ClangFoo_USE_LLVM_COMPONENTS AND (clangfoo_llvm_num_comps EQUAL 0))
+		ClangFoo_MESSAGE(WARNING
+		  "forcing ClangFoo_USE_LLVM_COMPONENTS to FALSE")
 		SET(ClangFoo_USE_LLVM_COMPONENTS FALSE)
 	ENDIF()
 
@@ -321,11 +395,14 @@ IF(LLVM_FOUND AND Clang_FOUND)
 
 	IF(NOT TARGET ClangFoo::llvm)
 		IF(ClangFoo_USE_LLVM_COMPONENTS)
+			IF(NOT TARGET ClangFoo::llvm_components)
+				ClangFoo_MESSAGE(FATAL_ERROR "yikes")
+			ENDIF()
 			ADD_LIBRARY(ClangFoo::llvm ALIAS ClangFoo::llvm_components)
-		ELSEIF(clangfoo_found_llvm_lib)
+		ELSEIF(ClangFoo_found_llvm_lib)
 			ADD_LIBRARY(ClangFoo::llvm ALIAS ClangFoo::llvm::LLVM)
 		ELSE()
-			MESSAGE(FATAL_ERROR "no LLVM library")
+			ClangFoo_MESSAGE(FATAL_ERROR "no LLVM library")
 		ENDIF()
 	ENDIF()
 
@@ -359,27 +436,45 @@ IF(LLVM_FOUND AND Clang_FOUND)
 		SET_TARGET_PROPERTIES(ClangFoo::clang::${item} PROPERTIES
 		  INTERFACE_LINK_LIBRARIES ${item})
 
-		GET_TARGET_PROPERTY(TARGET_TYPE ${item} TYPE)
+		GET_TARGET_PROPERTY(ClangFoo_target_type ${item} TYPE)
 		SET(clangfoo_selected FALSE)
 		IF(item MATCHES "^clang[A-Z].*$")
 			SET(clangfoo_selected TRUE)
 		ENDIF()
-		IF(clangfoo_selected AND (TARGET_TYPE STREQUAL "STATIC_LIBRARY"))
+		IF(clangfoo_selected AND
+		  (ClangFoo_target_type STREQUAL "STATIC_LIBRARY"))
 			IF(ClangFoo_VERBOSE)
-				MESSAGE(STATUS "clangcpp: found component ${item}")
+				ClangFoo_MESSAGE(STATUS "clangcpp: found component ${item}")
 			ENDIF()
 			LIST(APPEND clangfoo_clangcpp_comps ${item})
+		ELSE()
+			IF(ClangFoo_VERBOSE)
+				ClangFoo_MESSAGE(STATUS "clangcpp: skipping component ${item}")
+			ENDIF()
 		ENDIF()
 
 	ENDFOREACH()
+
+	IF(ClangFoo_VERBOSE)
+		ClangFoo_MESSAGE(STATUS
+		  "clangcpp components: ${clangfoo_clangcpp_comps}")
+	ENDIF()
 	LIST(LENGTH clangfoo_clangcpp_comps clangfoo_clangcpp_num_comps)
+	#ClangFoo_ASSIGN_TO_BOOL(ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT
+	#  clangfoo_clangcpp_num_comps GREATER 0)
+	#IF(NOT DEFINED ClangFoo_USE_CLANGCPP_COMPONENTS)
+	#	SET(ClangFoo_USE_CLANGCPP_COMPONENTS
+	#	  ${ClangFoo_USE_CLANGCPP_COMPONENTS_DEFAULT})
+	#ENDIF()
 
 	############################################################
 	# Create ClangFoo::clangcpp_components target.
 	############################################################
 
-	IF(clangfoo_clangcpp_num_comps EQUAL 0)
-		MESSAGE(WARNING "forcing ClangFoo_USE_CLANGCPP_COMPONENTS to FALSE")
+	IF(ClangFoo_USE_CLANGCPP_COMPONENTS AND
+	  (clangfoo_clangcpp_num_comps EQUAL 0))
+		ClangFoo_MESSAGE(WARNING
+		  "forcing ClangFoo_USE_CLANGCPP_COMPONENTS to FALSE")
 		SET(ClangFoo_USE_CLANGCPP_COMPONENTS FALSE)
 	ENDIF()
 
@@ -398,11 +493,14 @@ IF(LLVM_FOUND AND Clang_FOUND)
 
 	IF(NOT TARGET ClangFoo::clangcpp)
 		IF(ClangFoo_USE_CLANGCPP_COMPONENTS)
+			IF(NOT TARGET ClangFoo::clangcpp_components)
+				ClangFoo_MESSAGE(FATAL_ERROR "yikes")
+			ENDIF()
 			ADD_LIBRARY(ClangFoo::clangcpp ALIAS ClangFoo::clangcpp_components)
-		ELSEIF(clangfoo_found_clangcpp_lib)
+		ELSEIF(ClangFoo_found_clangcpp_lib)
 			ADD_LIBRARY(ClangFoo::clangcpp ALIAS ClangFoo::clang::clang-cpp)
 		ELSE()
-			MESSAGE(FATAL_ERROR "no clangcpp library")
+			ClangFoo_MESSAGE(FATAL_ERROR "no clangcpp library")
 		ENDIF()
 	ENDIF()
 
@@ -415,3 +513,10 @@ IF(LLVM_FOUND AND Clang_FOUND)
 endif()
 
 ################################################################################
+
+##########
+ELSE()
+ClangFoo_MESSAGE(WARNING
+  "ClangFoo package find operation performed multiple times")
+ENDIF() # GUARD
+##########
