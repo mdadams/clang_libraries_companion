@@ -5,9 +5,9 @@ This repository contains all of the code examples that are associated
 with the following slide deck:
 
   - Michael D. Adams.
-    Lecture Slides for the Clang Libraries [LLVM/Clang 15].
-    Edition 0.1.0,
-    Aug. 2023.
+    Lecture Slides for the Clang Libraries [LLVM/Clang 17].
+    Edition 0.2.0,
+    Jan. 2024.
 
 Obtaining the Slide Deck
 ------------------------
