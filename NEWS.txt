@@ -1,0 +1,64 @@
+NEWS
+====
+
+This document highlights some of the more significant changes from one
+release of the lecture slides (and companion Git repository) to the next.
+
+Edition 0.2.0 (2024-01-25)
+==========================
+
+Some of the more significant changes in going from Edition 0.1.0 to Edition
+0.2.0 are as follows:
+
+* The slides and code examples have been updated to be based on
+  LLVM/Clang 17, instead of Clang 15 (as was the case with the previous
+  edition of the slides).  The code examples still continue to work with
+  LLVM/Clang 15 and 16, however.  The API differences between LLVM/Clang
+  15, 16, and 17 are handled by conditional compilation in the case of the
+  non-slide code examples and by using multiple separate source files in
+  the case of code examples that appear on slides (so as to avoid clutter).
+
+* Numerous smaller improvements to the slides were made, including adding
+  more hyperlinks to external LLVM/Clang documentation.
+
+* A Dockerfile was added to the Companion Git repository in order
+  to provide an easy-to-use environment in which to build and run the
+  code examples.  This is expected to be helpful to beginners who do not
+  already have a working LLVM/Clang environment.
+
+* Some bugs fixes and other improvements were made to the Clang Auxiliary
+  Library (CAL), including fixing some problems in the function used to
+  determine the Clang include directory.
+
+* A new CMake find module was introduced for LLVM and Clang in an
+  attempt to reduce boilerplate needed in many CMakeLists.txt files.
+
+* Build-time introspection was added to determine whether the custom
+  Fmt library is needed for std::format support.
+
+* Many improvements were made to the scripts used (either directly or
+  indirectly) for running the various code examples for demo purposes.
+
+* Many changes were made to the scripts and configuration files used
+  for the GitHub CI workflow.
+
+* A formal JSON schema for compilation databases was added for reference
+  purposes.
+
+Edition 0.1.0 (2023-08-03)
+==========================
+
+Some of the more significant changes in going from Edition 0.0 to Edition
+0.1.0 are as follows:
+
+* Approximately 120 new slides were added along with a number of new code
+  examples in the Git repository.
+
+* Numerous improvements were made to the old content as well.
+
+Edition 0.0 (2022-12-31)
+========================
+
+* This was the initial release of the lecture slides.
+
+* This edition of the slides is based on LLVM/Clang 15.

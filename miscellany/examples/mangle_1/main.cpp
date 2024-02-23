@@ -119,7 +119,11 @@ std::string getMangledName(clang::MangleContext& mangleContext,
 	assert(!qualType.isNull() && !qualType->isDependentType());
 	std::string mangledName;
 	llvm::raw_string_ostream mangledOut(mangledName);
+#if (LLVM_MAJOR_VERSION >= 18)
+	mangleContext.mangleCXXRTTI(qualType, mangledOut);
+#else
 	mangleContext.mangleTypeName(qualType, mangledOut);
+#endif
 	return mangledName;
 }
 

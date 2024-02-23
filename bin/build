@@ -109,6 +109,27 @@ get_component_dir()
 	echo "$result_dir" || return 1
 }
 
+get_component_install_targets()
+{
+	if [ $# -ne 1 ]; then
+		eecho "get_component_install_targets: bad usage"
+		return 1
+	fi
+	local component="$1"
+	shift 1
+	local result
+	case "$component" in
+	slides)
+		result="install-subprojects";;
+	software)
+		result="install-subprojects install";;
+	*)
+		eecho "get_component_install_targets: invalid component $component"
+		return 1;;
+	esac
+	echo "$result"
+}
+
 # append to colon-delimited list
 append_to_cd_list()
 {
@@ -684,17 +705,24 @@ for component in "${components[@]}"; do
 	build_dir="$(get_component_dir "$root_dir" "$build_root_dir" "$context" \
 	  "$component" build)" || \
 	  panic "cannot get build directory for $component"
+	targets=($(get_component_install_targets "$component")) || \
+	  panic "cannot get build directory for $component"
 
 	if [ "$do_install" -ne 0 ]; then
 
 		cmake_build_options=("${base_cmake_build_options[@]}")
+
+		target_options=()
+		for target in "${targets[@]}"; do
+			target_options+=(--target "$target")
+		done
 
 		command=(
 			env
 			"${cmake_env[@]}"
 			cmake
 			--build "$build_dir"
-			--target install-subprojects
+			"${target_options[@]}"
 			"${cmake_build_options[@]}"
 		)
 		echo "RUNNING: ${command[*]}"

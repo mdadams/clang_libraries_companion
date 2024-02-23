@@ -13,6 +13,7 @@ option(ENABLE_UBSAN "Enable UBSan" TRUE)
 include(ExternalProject)
 include(FetchContent)
 include(ParseVersion)
+include(GNUInstallDirs)
 
 ################################################################################
 
@@ -77,9 +78,7 @@ list(APPEND project_dirs
   preproc_macros_1
   headers
   query_dependencies
-  #ast_matcher_11
-  #dump_tokens
-  #test_ast_visitor_1
+  test_ast_visitor_1
   template_10
   template_11
   attribute_2
@@ -114,12 +113,14 @@ foreach(dir IN LISTS project_dirs)
 		continue()
 	endif()
 
-	#if(NOT LLVM_MAJOR_VERSION EQUAL 15)
-	#	if(dir STREQUAL "lib_use_analyzer")
-	#		message(WARNING "Skipping directory ${dir}")
-	#		continue()
-	#	endif()
-	#endif()
+	# Skip the processing of the directory if the code example does not
+	# support the available version of LLVM/Clang.
+	if(LLVM_MAJOR_VERSION EQUAL 18)
+		if(dir STREQUAL "type_1")
+			message(WARNING "Skipping directory ${dir}")
+			continue()
+		endif()
+	endif()
 
 	# Set target name to directory name with any
 	# spaces changed to underscores.
@@ -180,3 +181,5 @@ foreach(dir IN LISTS project_dirs)
 	add_dependencies(${target}-configure cal-install)
 
 endforeach()
+
+add_subdirectory(bin)
