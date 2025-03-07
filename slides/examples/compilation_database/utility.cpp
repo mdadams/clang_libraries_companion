@@ -17,12 +17,12 @@ bool printCompCommands(llvm::raw_fd_ostream& out,
 		for (auto word : compCommand->CommandLine) {out << " " << word;}
 		out << '\n';
 		if (!compCommand->Output.empty()) {
-			out << "  output: " << compCommand->Output << '\n';
+			out << std::format("  output: {}\n", compCommand->Output);
 		} else {
 			out << "  no output\n";
 		}
 		if (!compCommand->Heuristic.empty()) {
-			out << "  heuristic: " << compCommand->Heuristic << '\n';
+			out << std::format("  heuristic: {}\n", compCommand->Heuristic);
 		} else {
 			out << "  no heuristic\n";
 		}

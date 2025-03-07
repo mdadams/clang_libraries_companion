@@ -177,12 +177,44 @@ std::string getClangProgramPath()
 #endif
 }
 
-std::string getClangVersion(const std::string& pathname)
+std::string getClangResourceDirPath(const std::string& clangProgramPath)
+{
+	std::string realClangProgramPath = clangProgramPath.empty() ?
+	  getClangProgramPath() : clangProgramPath;
+	if (realClangProgramPath.empty()) {
+		return "";
+	}
+	bp::ipstream is;
+	std::vector<std::basic_string<char>> args;
+	args.emplace_back("-print-resource-dir");
+	bp::child proc(realClangProgramPath, bp::args(args),
+	  bp::std_out > is, bp::std_err > "/dev/null");
+	bool firstLine = true;
+	std::string resourceDir;
+	std::string line;
+	while (std::getline(is, line) && !line.empty()) {
+		if (firstLine) {
+			resourceDir = line;
+			firstLine = false;
+		}
+	}
+	proc.wait();
+	int exitStatus = proc.exit_code();
+	if (exitStatus) {
+#if defined(CAL_DEBUG)
+		std::cerr << std::format("clang exit status {}\n", exitStatus);
+#endif
+		return "";
+	}
+	return resourceDir;
+}
+
+std::string getClangVersion(const std::string& clangProgramPath)
 {
 	bp::ipstream is;
 	std::vector<std::basic_string<char>> args;
 	args.emplace_back("--version");
-	bp::child proc(pathname, bp::args(args),
+	bp::child proc(clangProgramPath, bp::args(args),
 	  bp::std_out > is, bp::std_err > "/dev/null");
 	std::stringstream ss;
 	std::string line;
@@ -218,67 +250,18 @@ std::string getClangVersion(const std::string& pathname)
 	return version;
 }
 
-std::string getClangIncludeDirPathName()
+std::string getClangIncludeDirPath(const std::string& clangProgramPath)
 {
-	bf::path clangProgramPath = getClangProgramPath();
-	if (clangProgramPath.empty()) {
-#if defined(CAL_DEBUG)
-		std::cerr << "getClangProgramPath failed\n";
-#endif
+	std::string realClangProgramPath = clangProgramPath.empty() ?
+	  getClangProgramPath() : clangProgramPath;
+	if (realClangProgramPath.empty()) {
 		return "";
 	}
-	std::string clangVersionString = getClangVersion(
-	  clangProgramPath.string());
-	if (clangVersionString.empty()) {
-#if defined(CAL_DEBUG)
-		std::cerr << "getClangVersion failed\n";
-#endif
+	std::string resourceDir = getClangResourceDirPath(realClangProgramPath);
+	if (resourceDir.empty()) {
 		return "";
 	}
-
-	Version clangVersion;
-	if (!parseVersion(clangVersionString, clangVersion)) {
-		return "";
-	}
-
-	const std::vector<std::string> libDirNames{
-		"lib64",
-		"lib",
-	};
-	const std::vector<std::string> versionDirNames{
-		clangVersionString,
-		std::format("{}.{}", clangVersion.major, clangVersion.minor),
-		std::format("{}", clangVersion.major),
-	};
-	bf::path prefix = clangProgramPath.parent_path().parent_path();
-	bf::path path;
-	bool found = false;
-	for (const auto& libDirName : libDirNames) {
-		for (const auto& versionDirName : versionDirNames) {
-			path = prefix;
-			path /= libDirName;
-			path /= bf::path("clang") /= bf::path(versionDirName) /=
-			  bf::path("include");
-#if defined(CAL_DEBUG)
-			std::cerr << std::format("checking path {}\n", path.string());
-#endif
-			auto status = bf::status(path);
-			if (bf::is_directory(status)) {
-				found = true;
-				break;
-			}
-		}
-		if (found) {
-			break;
-		}
-	}
-	if (!found) {
-#if defined(CAL_DEBUG)
-		std::cerr << "getClangIncludeDirPathName failed: search failed\n";
-#endif
-	}
-	assert(!path.string().empty());
-	return found ? path.string() : "";
+	return (bf::path{resourceDir} / "include").string();
 }
 
 } // namespace cal

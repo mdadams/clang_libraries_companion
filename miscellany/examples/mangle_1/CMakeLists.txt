@@ -21,7 +21,8 @@ list(APPEND all_targets tool)
 add_executable(tool)
 target_sources(tool PRIVATE main.cpp)
 target_link_libraries(tool PRIVATE ClangFoo::llvm ClangFoo::clangcpp)
-target_compile_definitions(tool PRIVATE LLVM_MAJOR_VERSION=${LLVM_MAJOR_VERSION})
+target_compile_definitions(tool
+  PRIVATE LLVM_MAJOR_VERSION=${LLVM_MAJOR_VERSION})
 
 set(test_sources
 	data/example_1.cpp

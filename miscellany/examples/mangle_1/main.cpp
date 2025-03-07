@@ -10,6 +10,7 @@
 #include <clang/ASTMatchers/ASTMatchFinder.h>
 #include <clang/ASTMatchers/Dynamic/VariantValue.h>
 #include <clang/AST/Type.h>
+#include <clang/AST/DeclCXX.h>
 #include <clang/Frontend/FrontendActions.h>
 #include <clang/Tooling/CommonOptionsParser.h>
 #include <clang/Tooling/Tooling.h>
@@ -119,7 +120,9 @@ std::string getMangledName(clang::MangleContext& mangleContext,
 	assert(!qualType.isNull() && !qualType->isDependentType());
 	std::string mangledName;
 	llvm::raw_string_ostream mangledOut(mangledName);
-#if (LLVM_MAJOR_VERSION >= 18)
+#if (LLVM_MAJOR_VERSION >= 20)
+	mangleContext.mangleCanonicalTypeName(qualType, mangledOut);
+#elif (LLVM_MAJOR_VERSION >= 18)
 	mangleContext.mangleCXXRTTI(qualType, mangledOut);
 #else
 	mangleContext.mangleTypeName(qualType, mangledOut);
@@ -143,16 +146,19 @@ std::string getMangledName(clang::MangleContext& mangleContext,
 std::string getDemangledName(const std::string& mangledName)
 {
 	std::size_t size = 0;
-	int status;
+	char* result = nullptr;
 #if (LLVM_MAJOR_VERSION >= 17)
-	char* result = llvm::itaniumDemangle(mangledName);
+	if (!(result = llvm::itaniumDemangle(mangledName))) {
+		return "";
+	}
 #else /* LLVM 15 and 16 */
-	char* result = llvm::itaniumDemangle(mangledName.c_str(), nullptr, &size,
+	int status = 0;
+	result = llvm::itaniumDemangle(mangledName.c_str(), nullptr, &size,
 	  &status);
-#endif
 	if (status != llvm::demangle_success) {
 		return "";
 	}
+#endif
 	std::string demangledName(result);
 	std::free(result);
 	return demangledName;
@@ -280,7 +286,9 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result)
 			// TODO/FIXME: The destructor type should be set correctly here.
 			mangledName = getMangledName(*mangleContext,
 			  clang::GlobalDecl(dtorDecl, clang::CXXDtorType::Dtor_Complete));
-		} else {
+		} else if (!llvm::isa<clang::CXXDeductionGuideDecl>(funcDecl)) {
+			// NOTE: Do not attempt to mangle a deduction guide (as this is
+			// not allowed).
 			type = "function";
 			mangledName = getMangledName(*mangleContext, funcDecl);
 		}
@@ -317,6 +325,9 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result)
 	}
 	if (!mangledName.empty()) {
 		std::string s = getDemangledName(mangledName);
+		if (s.empty()) {
+			llvm::outs() << std::format("UNABLE TO DEMANGLE {}\n", mangledName);
+		}
 		if (s != name) {
 			llvm::outs() << std::format("MISMATCH {} != {}\n", s, name);
 		}

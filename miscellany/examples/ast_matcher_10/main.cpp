@@ -490,7 +490,7 @@ private:
 };
 
 int main(int argc, const char **argv) {
-	clClangIncludeDir = cal::getClangIncludeDirPathName();
+	clClangIncludeDir = cal::getClangIncludeDirPath();
 	auto expectedParser = ct::CommonOptionsParser::create(argc, argv,
 	  optionCategory);
 	if (!expectedParser) {

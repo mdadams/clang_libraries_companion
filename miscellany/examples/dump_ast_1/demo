@@ -1,0 +1,81 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+eecho()
+{
+	echo "$*" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	eecho "RUNNING: $*"
+	"$@"
+	local status=$?
+	eecho "EXIT STATUS: $status"
+	return "$status"
+}
+
+print_separator()
+{
+	python -c 'print("*" * 80)'
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+cdb_dir="$build_dir"
+verbose=0
+json=0
+
+while getopts vjc: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	j)
+		json=1;;
+	c)
+		cdb_dir="$OPTARG";;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files=("$@")
+
+if [ ${#source_files[@]} -eq 0 ]; then
+	source_files=(
+		"$data_dir/example_1.cpp"
+	)
+fi
+
+program="$build_dir/dump_ast"
+
+for source_file in "${source_files[@]}"; do
+
+	print_separator 1>&2
+	options=()
+	options+=(-p "$cdb_dir")
+	if [ "$json" -eq 0 ]; then
+		options+=(--text)
+	fi
+	run_command "$run_clang_tool" "$program" "${options[@]}" \
+	  "$source_file" || \
+	  panic "unexpected tool failure"
+	print_separator 1>&2
+
+done

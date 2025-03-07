@@ -1,0 +1,91 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+eecho()
+{
+	echo "$*" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	eecho "RUNNING: $*"
+	"$@"
+	local status=$?
+	eecho "EXIT STATUS: $status"
+	return "$status"
+}
+
+print_separator()
+{
+	python -c 'print("*" * 80)'
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+run_clang_tool="$source_dir/run_clang_tool"
+
+################################################################################
+
+verbose=0
+enable_last_child=1
+flush_left=1
+
+while getopts :vl:f: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	f)
+		flush_left="$OPTARG";;
+	l)
+		enable_last_child="$OPTARG";;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files=("$@")
+
+if [ ${#source_files[@]} -eq 0 ]; then
+	source_files=(
+		"$data_dir/example_1.cpp"
+	)
+fi
+
+program="$build_dir/dump_ast"
+
+for source_file in "${source_files[@]}"; do
+
+	print_separator 1>&2
+	options=()
+	options+=(-p "$build_dir")
+	if [ "$verbose" -ge 1 ]; then
+		options+=(-verbose)
+	fi
+	if [ "$enable_last_child" -ne 0 ]; then
+		options+=(-enable-last-child)
+	else
+		options+=(-no-enable-last-child)
+	fi
+	if [ "$flush_left" -ne 0 ]; then
+		options+=(-flush-left)
+	else
+		options+=(-no-flush-left)
+	fi
+	run_command env CL_DEBUG_LEVEL=10 "$run_clang_tool" \
+	  "$program" "${options[@]}" "$source_file" || \
+	  panic "unexpected tool failure"
+	print_separator 1>&2
+
+done

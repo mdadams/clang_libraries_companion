@@ -5,9 +5,9 @@ This repository contains all of the code examples that are associated
 with the following slide deck:
 
   - Michael D. Adams.
-    Lecture Slides for the Clang Libraries [LLVM/Clang 17].
-    Edition 0.2.0,
-    Jan. 2024.
+    Lecture Slides for the Clang Libraries [LLVM/Clang 20].
+    Edition 0.3.0,
+    Mar. 2025.
 
 Obtaining the Slide Deck
 ------------------------
@@ -42,22 +42,13 @@ provided build script (which invokes these two CMake superbuilds).
 GitHub CI Workflow
 ------------------
 
-This repository employs a CI workflow based on GitHub Actions.
-Each time a new commit is pushed, the code examples in the repository
-are built and run as a basic sanity test.
-This CI workflow serves as an example to show how the LLVM/Clang
-Ubuntu APT packages that are provided by the LLVM Project (at
-<https://apt.llvm.org/>) can be used in GitHub-hosted Linux runners.
-The CI workflow currently builds for a few combinations of the following:
-
-  - operating system:
-    - Ubuntu 22.04
-    - Ubuntu 20.04
-    - macOS 13
-    - macOS 12
-  - application programs built using:
-    - Clang
-    - GCC
+This repository employs a CI workflow based on GitHub Actions.  Each time
+a new commit is pushed, the code examples in the repository are built
+and run as a basic sanity test.  The workflow employs Podman/Docker
+container images based on Ubuntu and Fedora Linux.  The Ubuntu container
+image was generated using the Ubuntu APT packages that are provided by
+the LLVM Project (at <https://apt.llvm.org/>).  The code examples are
+built using both Clang and GCC.
 
 Prerequisites to Building the Software
 --------------------------------------
@@ -66,7 +57,7 @@ The code examples have the following software dependencies:
 
   - CMake
   - Make
-  - version 15, 16, or 17 of LLVM/Clang
+  - version 20 of LLVM/Clang
   - GCC (if application programs are to be built with GCC)
   - Boost
   - Python
@@ -83,10 +74,10 @@ declarations in the std namespace in that header.)  The C++ standard
 library included with version 13 and above of GCC has support for
 std::format.
 
-For convenience, a Dockerfile is provided in order to build a
-containerized environment that includes all of the necessary software
-dependencies.  More information on this Dockerfile is provided in
-a later section.
+For convenience, a Podman/Docker containerized environment is
+provided that includes all of the necessary software dependencies.
+More information on this containerized environment is provided in a
+later section.
 
 Building the Software
 ---------------------
@@ -183,12 +174,19 @@ Podman/Docker Containerized Demonstration Environment
 -----------------------------------------------------
 
 A Dockerfile is provided that can be used to create a Podman/Docker
-container with all of the necessary software dependencies for building
-and running the code examples in this repository.  Instructions are
-given below on how to use this containerized environment.  Although these
-instructions use (rootless) podman, the podman and docker programs have
-almost identical command-line interfaces.  So, it should be possible to
-substitute "docker" for "podman" in the instructions.
+container image with all of the necessary software dependencies for
+building and running the code examples in this repository.  Building
+this image is quite time consuming since it requires building LLVM.
+For this reason, a prebuilt version of the Podman/Docker container
+image has been made available via the following repository in the GitHub
+Container Registry:
+
+  - `ghcr.io/mdadams/clang_libs-fedora_41-llvm_20`
+
+Instructions are given below on how to use this containerized environment.
+Although these instructions use (rootless) Podman, the `podman` and `docker`
+programs have almost identical command-line interfaces.  So, it should
+be possible to substitute `docker` for `podman` in the instructions.
 
 Let $TOP_DIR denote the top-level directory of the working tree of the
 cloned Git repository (i.e., the directory that contains the file named
@@ -200,16 +198,32 @@ be an absolute path.
 
        cd $TOP_DIR
 
-2. Build the container using the command:
+2. Obtain the Podman/Docker container image.  Two options are available
+   in this step.  You can either use the author's prebuilt image available
+   from the GitHub Container Registry or build the image yourself.
+   In the interest of simplicity, the use of the prebuilt image is
+   recommended.
 
-       podman build --tag cl-demo - < podman/Dockerfile
+   - Option 1 (Use the prebuilt image).
+     To retrieve the prebuilt image, use the following command:
+
+         podman pull ghcr.io/mdadams/clang_libs-fedora_41-llvm_20
+
+   - Option 2 (Build the image from scratch).
+     To build the image from scratch, use the following command:
+
+         podman build --tag clang_libs-fedora_41-llvm_20 \
+           -f $TOP_DIR/podman/Dockerfile-fedora_41-llvm_20 $TOP_DIR
+
+     Note that building the container image from scratch involves
+     building LLVM, which takes a considerable amount of time.
 
 3. Create a temporary instance of the container and run a Bash shell in the
    container using the command:
 
        podman run -i -t --rm -v $TOP_DIR:$TOP_DIR:rw -w $TOP_DIR \
          --cap-add=SYS_PTRACE --security-opt label=disable \
-         cl-demo /bin/bash
+         clang_libs-fedora_41-llvm_20 /bin/bash
 
    Note that the "--cap-add" and "--security-opt" options may not be
    needed.

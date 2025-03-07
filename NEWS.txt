@@ -4,6 +4,39 @@ NEWS
 This document highlights some of the more significant changes from one
 release of the lecture slides (and companion Git repository) to the next.
 
+Edition 0.3.0 (2025-03-07)
+==========================
+
+Some of the more significant changes in going from Edition 0.2.0 to Edition
+0.3.0 are as follows:
+
+* The slides and code examples have been updated to be based on
+  LLVM/Clang 20.  Some of the code examples may work with earlier
+  versions of LLVM/Clang, but this is not officially supported.  The API
+  differences between different versions of LLVM/Clang are handled by
+  conditional compilation in the case of the non-slide code examples and
+  by using multiple separate source files in the case of code examples
+  that appear on slides (so as to avoid clutter).
+
+* Added new content related to (amongst other things):
+  - ASTUnit and AST serialization/deserialization
+  - various node visitor classes (e.g., DeclVisitor, StmtVisitor, etc.)
+  - ASTNodeTraverser
+  - VFS interface
+  - IntrusiveRefCntPtr
+  - DynamicRecursiveASTVisitor
+
+* Added several new code examples, including (but not limited to):
+  - a simple text-based AST dumper based on ASTNodeTraverser
+  - a simple text-based AST dumper based on RecursiveASTVisitor
+  - a AST serialization and deserialization example using ASTUnit
+
+* Improved the way in which the Clang include directory is being determined
+  in various places in the code.
+
+* Made numerous smaller improvements to the slides (e.g., revised wording,
+  added clarifying comments).
+
 Edition 0.2.0 (2024-01-25)
 ==========================
 

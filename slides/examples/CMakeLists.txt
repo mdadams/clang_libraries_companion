@@ -70,6 +70,12 @@ list(APPEND project_dirs
   ast_matcher_5
   command_line_0
   ast_matcher_6
+  ast_serialization_1
+  vfs_2
+  raw_tokens_1
+  tokens_1
+  intrusiverefcntptr_1
+  node_visitor_1
 )
 
 list(APPEND installable_project_dirs

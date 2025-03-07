@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(dump_cfg LANGUAGES CXX C)
+project(liveness_analysis LANGUAGES CXX C)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)

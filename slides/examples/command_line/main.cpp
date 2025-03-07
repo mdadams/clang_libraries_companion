@@ -6,36 +6,35 @@
 #include <llvm/Support/raw_ostream.h>
 
 using namespace std::literals;
+namespace lc = llvm::cl;
+namespace ct = clang::tooling;
 
-static llvm::cl::OptionCategory toolOptionCat("Tool Options");
-static llvm::cl::extrahelp
-  CommonHelp(clang::tooling::CommonOptionsParser::HelpMessage);
-static llvm::cl::extrahelp MoreHelp(
+static lc::OptionCategory toolOptionCat("Tool Options");
+static lc::extrahelp CommonHelp(ct::CommonOptionsParser::HelpMessage);
+static lc::extrahelp MoreHelp(
 	"This tool does not actually do anything useful.\n"
 	"Life is full of disappointments.  Get over it.\n"
 );
-llvm::cl::opt<std::string> outFile(
-  "o", llvm::cl::desc("Output file"), llvm::cl::value_desc("output_file"),
-  llvm::cl::cat(toolOptionCat));
-llvm::cl::opt<bool> verbose("verbose",
-  llvm::cl::desc("Enable verbose output."), llvm::cl::cat(toolOptionCat));
-llvm::cl::alias verbose2("v", llvm::cl::desc("Alias for -verbose"),
-  llvm::cl::aliasopt(verbose));
-llvm::cl::opt<bool> foobar("foobar",
-  llvm::cl::desc("Enable experimental features."), llvm::cl::Hidden);
-llvm::cl::opt<std::string> opName(llvm::cl::Positional, llvm::cl::Required,
-  llvm::cl::desc("Operation to perform."),
-  llvm::cl::value_desc("op_name"), llvm::cl::cat(toolOptionCat));
+lc::opt<std::string> outFile("o", lc::desc("Output file"),
+  lc::value_desc("output_file"), lc::cat(toolOptionCat));
+lc::opt<bool> verbose("verbose", lc::desc("Enable verbose output."),
+  lc::cat(toolOptionCat));
+lc::alias verbose2("v", lc::desc("Alias for -verbose"), lc::aliasopt(verbose));
+lc::opt<bool> foobar("foobar", lc::desc("Enable experimental features."),
+  lc::Hidden);
+lc::opt<std::string> opName(lc::Positional, lc::Required,
+  lc::desc("Operation to perform."), lc::value_desc("op_name"),
+  lc::cat(toolOptionCat));
 
 int main(int argc, const char **argv) {
-	llvm::Expected<clang::tooling::CommonOptionsParser> expectedOptionsParser(
-	  clang::tooling::CommonOptionsParser::create(argc, argv, toolOptionCat));
+	llvm::Expected<ct::CommonOptionsParser> expectedOptionsParser(
+	  ct::CommonOptionsParser::create(argc, argv, toolOptionCat));
 	if (!expectedOptionsParser) {
 		llvm::errs() << std::format("Unable to create option parser ({}).\n",
 		  llvm::toString(std::move(expectedOptionsParser.takeError())));
 		return 1;
 	}
-	clang::tooling::CommonOptionsParser& optionsParser = *expectedOptionsParser;
+	ct::CommonOptionsParser& optionsParser = *expectedOptionsParser;
 	llvm::outs()
 	  << std::format("verbose: {}\n", static_cast<bool>(verbose))
 	  << std::format("foobar: {}\n", static_cast<bool>(foobar))

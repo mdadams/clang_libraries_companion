@@ -1,0 +1,76 @@
+ARG OS_RELEASE=41
+ARG LLVM_VERSION=20.1.0
+ARG INSTALL_DIR=/opt/sde/packages
+
+FROM registry.fedoraproject.org/fedora:$OS_RELEASE
+
+ARG LLVM_VERSION
+ARG INSTALL_DIR
+ARG LLVM_NAME=llvm
+ARG BUILD_DIR=/var/tmp/build
+
+# Note: Using the --setopt=install_weak_deps=False option for dnf install
+# seems to cause problems.
+
+RUN \
+dnf -y install --nodocs \
+  gcc \
+  gcc-c++ \
+  cmake \
+  make \
+  ninja-build \
+  git \
+  vim \
+  wget \
+  hostname \
+  python3 \
+  python-unversioned-command \
+  jq \
+  bc \
+  which \
+  libasan \
+  liblsan \
+  libtsan \
+  libubsan \
+  zlib-devel \
+  ncurses-devel \
+  libffi-devel \
+  libedit-devel \
+  libxml2-devel \
+  openssl-devel \
+  boost-devel \
+  boost-static
+
+RUN \
+dnf clean all \
+&& \
+rm -rf /var/cache/dnf
+
+RUN \
+mkdir -p $BUILD_DIR $BUILD_DIR/bin
+
+COPY ./install_clang_stub $BUILD_DIR/bin
+
+RUN \
+$BUILD_DIR/bin/install_clang_stub \
+  -V $LLVM_VERSION \
+  -I $INSTALL_DIR/$LLVM_NAME-$LLVM_VERSION \
+  -B $BUILD_DIR/tmp
+
+RUN \
+ln -s $LLVM_NAME-$LLVM_VERSION $INSTALL_DIR/$LLVM_NAME
+
+RUN \
+rm -rf $BUILD_DIR
+
+ENV \
+GCC_CC_PATH=/usr/bin/gcc \
+GCC_CXX_PATH=/usr/bin/g++ \
+CLANG_CC_PATH=$INSTALL_DIR/$LLVM_NAME/bin/clang \
+CLANG_CXX_PATH=$INSTALL_DIR/$LLVM_NAME/bin/clang++
+
+ENV \
+PATH="$PATH:$INSTALL_DIR/$LLVM_NAME/bin" \
+CMAKE_PREFIX_PATH=$INSTALL_DIR/$LLVM_NAME
+
+CMD /bin/bash

@@ -1,0 +1,101 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+print_separator()
+{
+	python -c 'print("*" * 80)'
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+get_clang_include_dir="$source_dir/get_clang_include_dir"
+
+################################################################################
+
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+	EOF
+	exit 2
+}
+
+save_program="$build_dir/save_ast"
+load_program="$build_dir/load_ast"
+verbose=0
+source_files=()
+extra_args=(-std=c++20)
+out_dir="$build_dir/output"
+
+while getopts va:o: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	a)
+		extra_args+=("$OPTARG");;
+	o)
+		out_dir="$OPTARG";;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files+=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir"/example_2.cpp)
+fi
+
+clang_inc_dir="$("$get_clang_include_dir")" || \
+  panic "cannot get Clang include directory"
+
+if [ ! -d "$out_dir" ]; then
+	mkdir -p "$out_dir" || \
+	  panic "cannot make directory $out_dir"
+fi
+
+ast_file="$out_dir/test.ast"
+
+for source_file in "${source_files[@]}"; do
+
+	print_separator
+	echo "SOURCE FILE: $source_file"
+
+	print_separator
+	save_options=()
+	save_options+=(-clang-include-dir "$clang_inc_dir")
+	for extra_arg in "${extra_args[@]}"; do
+		save_options+=(-extra-arg="$extra_arg")
+	done
+	run_command \
+	  "$save_program" "${save_options[@]}" -o "$ast_file" "$source_file" || \
+	  panic "tool failed"
+
+	print_separator
+	load_options=()
+	run_command \
+	  "$load_program" "${load_options[@]}" "$ast_file" || \
+	  panic "tool failed"
+
+done

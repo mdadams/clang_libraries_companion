@@ -71,6 +71,7 @@ add_dependencies(install-subprojects cal-install)
 
 # The top-level directories of the projects to be processed (i.e., built).
 list(APPEND project_dirs
+  ast_consumer_2
   ast_from_string
   ast_matcher_10
   ast_visitor_10
@@ -88,6 +89,9 @@ list(APPEND project_dirs
   lib_use_analyzer
   mangle_1
   jsontool
+  dump_ast_1
+  dump_ast_2
+  dump_ast_3
 )
 
 # A list of the project directories that have install targets.
@@ -104,6 +108,17 @@ list(APPEND nondemoable_project_dirs
   #dump_type
 )
 
+# A list of project directories to skip for LLVM/Clang 18 and later.
+list(APPEND skip_list
+  ##########
+  type_1
+  lib_use_analyzer
+  linter
+  ##########
+  dump_type # NOTE/FIXME: Failed assertion.  Might be compiler bug?
+  ##########
+)
+
 # Add each project as an external project.
 foreach(dir IN LISTS project_dirs)
 
@@ -115,10 +130,13 @@ foreach(dir IN LISTS project_dirs)
 
 	# Skip the processing of the directory if the code example does not
 	# support the available version of LLVM/Clang.
-	if(LLVM_MAJOR_VERSION EQUAL 18)
-		if(dir STREQUAL "type_1")
-			message(WARNING "Skipping directory ${dir}")
-			continue()
+	if(LLVM_MAJOR_VERSION GREATER_EQUAL 18)
+		list(FIND skip_list ${dir} find_index)
+		if(NOT find_index EQUAL -1)
+			if(dir STREQUAL "${dir}")
+				message(WARNING "Skipping directory ${dir}")
+				continue()
+			endif()
 		endif()
 	endif()
 

@@ -31,6 +31,13 @@ usage()
 {
 	cat <<- EOF
 	usage: $0 [options]
+
+	Options
+	=======
+
+	-B \$build_dir
+	Specify that the Clang tool should look in the directory \$build_dir
+	for a compilation database.
 	EOF
 	exit 2
 }
@@ -39,10 +46,12 @@ program="$build_dir/tool"
 
 matchers=()
 
-while getopts vm: option; do
+while getopts vm:B: option; do
 	case "$option" in
 	m)
 		matchers+=("$OPTARG");;
+	B)
+		build_dir="$OPTARG";;
 	*)
 		usage;;
 	esac
@@ -55,16 +64,16 @@ if [ "${#source_files[@]}" -eq 0 ]; then
 	source_files+=("$data_dir/example_2.cpp")
 fi
 
-options+=(-p "$build_dir")
+tool_options+=(-p "$build_dir")
 for matcher in "${matchers[@]}"; do
-	options+=(-m "$matcher")
+	tool_options+=(-m "$matcher")
 done
 
 for source_file in "${source_files[@]}"; do
 	echo "SOURCE FILE: $source_file"
 	python -c 'print("*" * 40)'
 	run_command \
-	  "$run_clang_tool" "$program" "${options[@]}" "$source_file" || \
+	  "$run_clang_tool" "$program" "${tool_options[@]}" "$source_file" || \
 	  panic "tool failed"
 	python -c 'print("*" * 40)'
 done

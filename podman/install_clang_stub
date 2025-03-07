@@ -1,0 +1,120 @@
+#! /usr/bin/env bash
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+usage()
+{
+	cat <<- EOF
+	$0 -V \$version -B \$build_dir -I \$install_dir
+
+	Examples
+	========
+
+	$0 -V 20.1.0 -B /tmp/$USER/build -I /tmp/$USER/install
+	$0 -V 20.1.0 -B /tmp/$USER/build -I /tmp/$USER/install \\
+	  -X sde_install_clang
+	EOF
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+install_dir=
+build_dir=
+version=
+verbose=0
+sde_install_clang=
+
+while getopts :vV:B:I:X: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	V)
+		version="$OPTARG";;
+	B)
+		build_dir="$OPTARG";;
+	I)
+		install_dir="$OPTARG";;
+	X)
+		sde_install_clang="$OPTARG";;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ "$verbose" -ge 1 ]; then
+	set -xv
+fi
+
+if [ -z "$build_dir" ]; then
+	usage "no build directory specified"
+fi
+if [ -z "$install_dir" ]; then
+	usage "no install directory specified"
+fi
+if [ -z "$version" ]; then
+	usage "no LLVM version specified"
+fi
+
+if [ -z "$sde_install_clang" ]; then
+
+	sde_git_repo="https://github.com/mdadams/sde.git"
+	sde_version="v13.0.9"
+
+	git_dir="$build_dir/git"
+
+	git clone "$sde_git_repo" "$git_dir" || \
+	  panic "git clone failed"
+
+	git -C "$git_dir" checkout "$sde_version" || \
+	  panic "git checkout failed"
+
+	sde_install_clang="$git_dir/bin/sde_install_clang"
+
+fi
+
+install_opts=(
+	--method git
+	--version llvmorg-$version
+	--build-type Release
+	##########
+	--strip
+	--no-build-docs
+	--cleanup
+	--no-keep-source
+	##########
+	--default-projects
+	###--project clang:clang-tools-extra:compiler-rt:lld:libclc:polly
+	##--project clang:clang-tools-extra:compiler-rt:lld:polly
+	--default-projects-runtimes
+	#--default-targets
+	--target X86
+	##########
+	--num-jobs 8
+	--num-parallel-compile-jobs 8
+	--num-parallel-link-jobs 1
+	##########
+	#--num-jobs 1
+	#--num-parallel-compile-jobs 1
+	#--num-parallel-link-jobs 1
+	##########
+	--install-dir "$install_dir"
+)
+
+install_prefix=(
+	env SDE_TMPDIR=/var/tmp
+)
+command=(
+	"${install_prefix[@]}"
+	"$sde_install_clang"
+	"${install_opts[@]}"
+)
+echo "RUNNING ${command[*]}"
+"${command[@]}" || \
+  panic "install failed"
+
+exit 0

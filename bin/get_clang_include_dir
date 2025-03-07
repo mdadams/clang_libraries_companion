@@ -1,124 +1,69 @@
-#! /usr/bin/env bash
+#! /usr/bin/env python
 
-################################################################################
-# Functions
-################################################################################
+# Copyright (c) 2025 Michael D. Adams
 
-eecho()
-{
-	echo "$@" 1>&2
-}
+import sys
+import os
+import subprocess
+import glob
 
-panic()
-{
-	eecho "ERROR: $*"
-	exit 1
-}
+debug_level=0
 
-get_clang_version()
-{
-	local program="${1:-clang++}"
-	"$program" --version | awk '
-		(NR==1){
-			for (i = 1; i <= NF; ++i) {
-				if (tolower($i) == "version") {
-					++i;
-					print $i;
-					break;
-				}
-			}
-		}
-	'
-}
+def eprint(*args, **kwargs):
+    print(*args, file = sys.stderr, **kwargs)
 
-usage()
-{
-	echo "BAD USAGE: $*"
-	exit 2
-}
+def run_program(args):
+    try:
+        result = subprocess.run(args, stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE, text=True, check=True)
+        if result.returncode == 0:
+            return {"status": result.returncode, "stdout": result.stdout}
+        return {"status": result.returncode}
+    except subprocess.CalledProcessError as e:
+        return {"status": -1, "exception": e}
 
-################################################################################
-# Command-Line Processing
-################################################################################
+def run_clang_print_resource_dir(clang_program_path):
+    if debug_level >= 1:
+        eprint(f"running: {clang_program_path} -print-resource-dir")
+    args = [clang_program_path, "-print-resource-dir"]
+    run_result = run_program(args)
+    if run_result["status"] != 0:
+        return None
+    resource_dir = run_result["stdout"].splitlines()[0]
+    return resource_dir
 
-self_canonpath="$(realpath "$0")" || \
-  panic "cannot get real path of program"
-self_dir="$(dirname "$self_canonpath")" || \
-  panic "cannot get directory of program"
+def get_clang_globs():
+    return [
+        "clang++",
+        "clang++-*",
+    ]
 
-default_clang_major_versions=(17 16 15)
+def get_clang_resource_dir():
+    cxx = os.environ.get("CXX")
+    if cxx is not None:
+        resource_dir = run_clang_print_resource_dir(cxx)
+        if resource_dir is not None:
+            return resource_dir
+    search_path = os.environ.get("PATH", "").split(os.pathsep)
+    for pattern in get_clang_globs():
+        for dir_path in search_path:
+            full_pattern = dir_path + os.path.sep + pattern
+            for target in glob.glob(full_pattern):
+                resource_dir = run_clang_print_resource_dir(target)
+                if resource_dir is not None:
+                    return resource_dir
+    return None
 
-clang_info="$self_dir/clang_info"
-clang_major_version="$CLANG_MAJOR_VERSIONS"
+def main():
+    global debug_level
+    debug = os.environ.get("CL_GET_CLANG_INCLUDE_DIR_DEBUG")
+    if debug is not None:
+        debug_level = 1
+    include_dir = os.environ.get("CL_CLANG_INCLUDE_DIR")
+    if include_dir is None:
+        resource_dir = get_clang_resource_dir()
+        include_dir = resource_dir + os.path.sep + "include"
+    print(include_dir)
 
-verbose=0
-
-while getopts v option; do
-	case "$option" in
-	v)
-		verbose=$((verbose + 1));;
-	\?)
-		usage "invalid option $option";;
-	esac
-done
-shift $((OPTIND - 1))
-
-# For debugging only.
-#set -xv
-
-################################################################################
-# Determine Clang Include Directory
-################################################################################
-
-clang_major_versions=()
-if [ -n "$clang_major_version" ]; then
-	clang_major_versions=("$clang_major_version")
-fi
-if [ ${#clang_major_versions[@]} -eq 0 ]; then
-	clang_major_versions=("${default_clang_major_versions[@]}")
-fi
-
-clang_include_dir=
-
-if [ -z "$clang_include_dir" -a -n "$CL_CLANG_INCLUDE_DIR" ]; then
-	clang_include_dir="$CL_CLANG_INCLUDE_DIR"
-fi
-
-if [ -z "$clang_include_dir" ]; then
-
-	clang_program_path="$CL_CLANG_CXX_PATH"
-	if [ -z "$clang_program_path" ]; then
-		clang_program_path="$CLANG_CXX_PATH"
-	fi
-
-	if [ -z "$clang_program_path" ]; then
-		options=()
-		for clang_major_version in "${clang_major_versions[@]}"; do
-			options+=(
-				-n clang++"$clang_major_version"
-				-n clang++-"$clang_major_version"
-			)
-		done
-		clang_include_dir="$("$clang_info" \
-		  -p "$PATH" \
-		  "${options[@]}" \
-		  -n clang++ \
-		  include_dir)" || panic "clang_info failed"
-	else
-		clang_include_dir="$("$clang_info" \
-		  -P "$clang_program_path" \
-		  include_dir)" || \
-		  panic "clang_info failed"
-	fi
-
-fi
-
-if [ "$verbose" -ge 1 ]; then
-	eecho "expected clang include directory $clang_include_dir"
-fi
-
-if [ ! -d "$clang_include_dir" ]; then
-	panic "clang include directory not found ($clang_include_dir)"
-fi
-
-echo "$clang_include_dir"
+if __name__ == "__main__":
+    sys.exit(main())

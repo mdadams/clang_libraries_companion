@@ -297,7 +297,7 @@ stop_after_fmtlib=0
 enable_asan_user_poisoning=
 enable_asan_leak_detect=
 enable_ubsan_halt_on_error=
-num_jobs=8
+num_jobs=
 clangfoo_comps=
 
 install_dir="$root_dir/install"
@@ -518,6 +518,25 @@ if [ "$do_build" -ne 0 ]; then
 	do_install=1
 fi
 
+num_cpus=
+if [ -z "$num_cpus" ]; then
+	num_cpus="$(nproc)" || num_cpus=
+fi
+if [ -z "$num_cpus" ]; then
+	num_cpus="$(getconf _NPROCESSORS_ONLN)" || num_cpus=
+fi
+echo "number of CPUs: ${num_cpus:-unknown}"
+
+if [ -n "$num_jobs" ]; then
+	if [ "$num_jobs" -eq 0 ]; then
+		if [ -z "$num_cpus" ]; then
+			panic "cannot determine number of CPUs"
+		fi
+		num_jobs="$num_cpus"
+	fi
+fi
+echo "number of jobs: ${num_jobs:-unspecified}"
+
 ################################################################################
 #
 ################################################################################
@@ -567,9 +586,12 @@ if [ -n "$clangfoo_comps" ]; then
 	base_cmake_env+=(ClangFoo_USE_CLANGCPP_COMPONENTS="$clangfoo_comps")
 fi
 
-base_cmake_build_options=(
-	--parallel "$num_jobs"
-)
+base_cmake_build_options=()
+if [ -n "$num_jobs" ]; then
+	base_cmake_build_options+=(
+		--parallel "$num_jobs"
+	)
+fi
 
 ################################################################################
 #
@@ -769,9 +791,12 @@ for component in "${components[@]}"; do
 	run_env+=(UBSAN_OPTIONS="$ubsan_options")
 
 	if [ "$do_demo" -ne 0 ]; then
-		cmake_build_options=(
-			--parallel "$num_jobs"
-		)
+		cmake_build_options=()
+		if [ -n "$num_jobs" ]; then
+			cmake_build_options+=(
+				--parallel "$num_jobs"
+			)
+		fi
 		command=(
 			env "${cmake_env[@]}"
 			"${run_env[@]}"

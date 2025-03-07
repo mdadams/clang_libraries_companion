@@ -1,0 +1,34 @@
+name: CI Testing
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  #pull_request:
+
+jobs:
+  build-job:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        #image: [ "ghcr.io/uvic-frodo/clang_libs-ubuntu_24-llvm_20:latest", "ghcr.io/uvic-frodo/clang_libs-fedora_41-llvm_20:latest" ]
+        image:
+          - "ghcr.io/mdadams/clang_libs-ubuntu_24-llvm_20:latest"
+          - "ghcr.io/mdadams/clang_libs-fedora_41-llvm_20:latest"
+    container:
+      image: ${{matrix.image}}
+      #credentials:
+      #  username: jdoe
+      #  password: ${{secrets.GHCR_TOKEN}}
+      volumes:
+        - ${{github.workspace}}:/workspace
+      #options: --cpus 1
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Build
+        shell: bash
+        run: |
+          echo "image: ${{matrix.image}}"
+          ./build --defaults --num-jobs 0 --verbose-makefile --no-fmt --demo

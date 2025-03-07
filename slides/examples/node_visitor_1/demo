@@ -1,0 +1,83 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	echo "RUNNING: $*"
+	"$@"
+	local status=$?
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+print_separator()
+{
+	python -c 'print("*" * 80)'
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+data_dir="$source_dir/data"
+get_clang_include_dir="$source_dir/get_clang_include_dir"
+
+################################################################################
+
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+	EOF
+	exit 2
+}
+
+program="$build_dir/tool"
+verbose=0
+source_files=()
+extra_args=(-std=c++20)
+
+while getopts va: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	a)
+		extra_args+=("$OPTARG");;
+	*)
+		usage;;
+	esac
+done
+shift $((OPTIND - 1))
+
+source_files+=("$@")
+
+if [ "${#source_files[@]}" -eq 0 ]; then
+	source_files+=("$data_dir"/example_1.cpp)
+fi
+
+clang_inc_dir="$("$get_clang_include_dir")" || \
+  panic "cannot get Clang include directory"
+
+for source_file in "${source_files[@]}"; do
+
+	print_separator
+	echo "SOURCE FILE: $source_file"
+
+	program_options=()
+	program_options+=(-clang-include-dir "$clang_inc_dir")
+	for extra_arg in "${extra_args[@]}"; do
+		program_options+=(-extra-arg="$extra_arg")
+	done
+	run_command \
+	  "$program" "${program_options[@]}" "$source_file" || \
+	  panic "tool failed"
+
+done
