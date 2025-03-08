@@ -17,6 +17,9 @@ jobs:
         image:
           - "ghcr.io/mdadams/clang_libs-ubuntu_24-llvm_20:latest"
           - "ghcr.io/mdadams/clang_libs-fedora_41-llvm_20:latest"
+        compiler:
+          - gcc
+          - clang
     container:
       image: ${{matrix.image}}
       #credentials:
@@ -29,6 +32,9 @@ jobs:
       - uses: actions/checkout@v4.1.1
       - name: Build
         shell: bash
+        env:
+          CXX_COMPILER: ${{matrix.compiler}}
         run: |
           echo "image: ${{matrix.image}}"
-          ./build --defaults --num-jobs 0 --verbose-makefile --no-fmt --demo
+          echo "compiler: ${{matrix.compiler}}"
+          ./.build/github/build_wrapper ./build --defaults --num-jobs 0 --verbose-makefile --no-fmt --demo

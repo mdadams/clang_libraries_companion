@@ -1,0 +1,30 @@
+#! /usr/bin/env bash
+
+panic()
+{
+	echo "ERROR: $*"
+	exit 1
+}
+
+case "$CXX_COMPILER" in
+gcc)
+	export CC="$GCC_CC_PATH"
+	export CXX="$GCC_CXX_PATH"
+	;;
+clang)
+	export CC="$CLANG_CC_PATH"
+	export CXX="$CLANG_CXX_PATH"
+	;;
+*)
+	panic "invalid compiler selection"
+	;;
+esac
+
+cat <<- EOF
+================================================================================
+CXX_COMPILER: $CXX_COMPILER
+CC: $CC
+CXX: $CXX
+================================================================================
+EOF
+exec "$@"
