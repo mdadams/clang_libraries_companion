@@ -63,7 +63,7 @@ The code examples have the following software dependencies:
 
 These dependencies must be installed prior to building the code examples.
 
-If the C++ standard library does not support std::format, a custom version
+If the C++ standard library does not support `std::format`, a custom version
 of the fmt library can be automatically installed (as part of the build
 process) to provide this support.  (This custom version of the fmt library
 provides a standard library header called `format` and places a few key
@@ -130,7 +130,7 @@ working tree of the cloned Git repository.
 
        ./build --defaults
 
-   If the C++ standard library being used happens to support std::format, the
+   If the C++ standard library being used happens to support `std::format`, the
    `--no-fmt` option can be added to the invocation of the build script above
    (so that the custom version of the fmt library is not used).  That is,
    the following command can be used:
@@ -209,7 +209,7 @@ be an absolute path.
      To build the image from scratch, use the following command:
 
          podman build --tag clang_libs-fedora_41-llvm_20 \
-           -f $TOP_DIR/podman/Dockerfile-fedora_41-llvm_20 $TOP_DIR
+           -f $TOP_DIR/podman/Dockerfile-fedora_41-llvm_20 $TOP_DIR/podman
 
      Note that building the container image from scratch involves
      building LLVM, which takes a considerable amount of time.
