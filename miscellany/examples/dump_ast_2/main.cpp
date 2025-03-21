@@ -1,4 +1,5 @@
 #include <format>
+
 #include <clang/AST/ASTConsumer.h>
 #include <clang/Frontend/CompilerInstance.h>
 #include <clang/Frontend/FrontendAction.h>
@@ -43,6 +44,26 @@ public:
 		llvm::outs() << std::format("stmtCount {}\n", dumperStats.stmtCount);
 		llvm::outs() << std::format("typeCount {}\n", dumperStats.typeCount);
 		llvm::outs() << std::format("typeLocCount {}\n", dumperStats.typeLocCount);
+		llvm::outs() << std::format("conceptRefCount {}\n",
+		  dumperStats.conceptRefCount);
+		llvm::outs() << std::format("cxxBaseSpecCount {}\n",
+		  dumperStats.cxxBaseSpecCount);
+		llvm::outs() << std::format("ctorInitCount {}\n",
+		  dumperStats.ctorInitCount);
+		llvm::outs() << std::format("lambdaCaptureCount {}\n",
+		  dumperStats.lambdaCaptureCount);
+		llvm::outs() << std::format("nestedNameSpecCount {}\n",
+		  dumperStats.nestedNameSpecCount);
+		llvm::outs() << std::format("nestedNameSpecLocCount {}\n",
+		  dumperStats.nestedNameSpecLocCount );
+		llvm::outs() << std::format("tempArgCount {}\n",
+		  dumperStats.tempArgCount);
+		llvm::outs() << std::format("tempArgLocCount {}\n",
+		  dumperStats.tempArgLocCount);
+		llvm::outs() << std::format("tempNameCount {}\n",
+		  dumperStats.tempNameCount );
+		llvm::outs() << std::format("objcProtocolLocCount {}\n",
+		  dumperStats.objcProtocolLocCount );
 	}
 private:
 	std::string fileName_;

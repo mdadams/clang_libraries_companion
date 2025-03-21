@@ -52,7 +52,7 @@ shift $((OPTIND - 1))
 source_files+=("$@")
 
 if [ "${#source_files[@]}" -eq 0 ]; then
-	source_files+=("$data_dir"/example_2.cpp)
+	source_files+=("$data_dir"/example_4.cpp)
 fi
 
 options+=(-p "$build_dir")

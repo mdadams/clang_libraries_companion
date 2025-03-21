@@ -1,6 +1,9 @@
 #ifndef AstDumper_hpp
 #define AstDumper_hpp
 
+#define ENABLE_TYPEVISITOR
+#define ENABLE_BUILTINTYPE
+
 #include <format>
 #include <stack>
 #include <ranges>
@@ -8,15 +11,31 @@
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/TypeLoc.h>
 #include <clang/AST/Type.h>
+#include <clang/AST/TypeVisitor.h>
 #include <clang/AST/RecursiveASTVisitor.h>
 #include <clang/AST/ASTTypeTraits.h>
 #include <llvm/Support/raw_ostream.h>
+#include <clang/AST/PrettyPrinter.h>
 
 #include "clang_utility_1.hpp"
 #include "TreeFormatter.hpp"
 
+class AstDumper;
+
+class DumpTypeVisitor : public clang::TypeVisitor<DumpTypeVisitor> {
+public:
+	DumpTypeVisitor(AstDumper* dumper) : dumper_(dumper) {}
+	AstDumper* dumper_;
+	void VisitType(const clang::Type* type);
+#ifdef ENABLE_BUILTINTYPE
+	void VisitBuiltinType(const clang::BuiltinType* type);
+#endif
+};
+
 class AstDumper : public clang::RecursiveASTVisitor<AstDumper> {
 public:
+
+	friend class DumpTypeVisitor;
 
 	/*
 	Types
@@ -39,6 +58,16 @@ public:
 		std::size_t stmtCount;
 		std::size_t typeCount;
 		std::size_t typeLocCount;
+		std::size_t conceptRefCount;
+		std::size_t cxxBaseSpecCount;
+		std::size_t ctorInitCount;
+		std::size_t lambdaCaptureCount;
+		std::size_t nestedNameSpecCount;
+		std::size_t nestedNameSpecLocCount;
+		std::size_t tempArgCount;
+		std::size_t tempArgLocCount;
+		std::size_t tempNameCount;
+		std::size_t objcProtocolLocCount;
 	};
 
 	/*
@@ -71,6 +100,16 @@ public:
 		stats.stmtCount = stmtCount_;
 		stats.typeCount = typeCount_;
 		stats.typeLocCount = typeLocCount_;
+		stats.conceptRefCount = conceptRefCount_;
+		stats.cxxBaseSpecCount = cxxBaseSpecCount_;
+		stats.ctorInitCount = ctorInitCount_;
+		stats.lambdaCaptureCount = lambdaCaptureCount_;
+		stats.nestedNameSpecCount = nestedNameSpecCount_;
+		stats.nestedNameSpecLocCount = nestedNameSpecLocCount_;
+		stats.tempArgCount = tempArgCount_;
+		stats.tempArgLocCount = tempArgLocCount_;
+		stats.tempNameCount = tempNameCount_;
+		stats.objcProtocolLocCount = objcProtocolLocCount_;
 	}
 
 	/*
@@ -181,29 +220,6 @@ public:
 		return ret;
 	}
 
-	template<class Node, class IsNull, class TraverseNode>
-	bool traverseImpl3(Node node, IsNull isNull, TraverseNode traverseNode,
-	  const std::string& label = {}) {
-		if (isNull(node)) {
-			return true;
-		}
-		BigInt nodeId = makeNodeId();
-		logf(1, "TraverseImpl entered {} {}\n", nodeId, label);
-		// Note: The DynTypedNode is not really used for anything currently.
-		nodeStack_.emplace_back(nodeId, getCurLevel() + 1,
-		  clang::DynTypedNode::create(node));
-		treeFormatter_.down();
-		bool ret = traverseNode(node);
-		if (auto numChildren = treeFormatter_.getCurChildNo();
-		  numChildren < 0) {
-			logf(1, "no visited nodes\n");
-		}
-		treeFormatter_.up();
-		nodeStack_.pop_back();
-		logf(1, "TraverseImpl exited {} {}\n", nodeId, label);
-		return ret;
-	}
-
 	template<class Node, class IsNull, class TraverseNode, class VisitNode>
 	bool traverseImpl3a(Node node, IsNull isNull, TraverseNode traverseNode,
 	  VisitNode visitNode, const std::string& label = {}) {
@@ -231,10 +247,7 @@ public:
 	/*
 	The following are not currently handled:
 	TraverseSynOrSemInitListExpr
-	TraverseObjCProtocolLoc
-	TraverseConceptReference
 	TraverseTemplateInstantiations (overloaded)
-	TraverseOMPClause
 	TraverseConceptRequirement
 	*/
 
@@ -276,6 +289,7 @@ public:
 
 	bool TraverseLambdaCapture(clang::LambdaExpr *lambda,
 	  const clang::LambdaCapture *capture, clang::Expr *init) {
+		xVisitLambdaCapture(capture);
 		if (lambda->isInitCapture(capture)) {
 			if (!TraverseDecl(capture->getCapturedVar())) {
 				return false;
@@ -302,18 +316,20 @@ public:
 		  "NestedNameSpecifierLoc");
 	}
 
-#if 0
-	// Ignore ObjCProcotolLoc nodes.
 	bool TraverseObjCProtocolLoc(clang::ObjCProtocolLoc loc) {
+		// NOTE/FIXME: This should probably actually do something.
+		// Effectively, ignore ObjCProcotolLoc nodes.
+		++objcProtocolLocCount_;
 		return true;
 	}
-#endif
 
 #if 0
 	// NOTE: This will not compile since Base::TraverseOMPClause is private.
 	bool TraverseOMPClause(clang::OMPClause* node) {
-		return traverseImpl1(node,
-		  [this](auto node){return Base::TraverseOMPClause(node);});
+		return traverseImpl1a(node,
+		  [this](auto node){return Base::TraverseOMPClause(node);},
+		  [this](auto node){return xVisitOMPClause(node);},
+		  "OMPClause");
 	}
 #endif
 
@@ -348,14 +364,12 @@ public:
 		  "TemplateName");
 	}
 
-	// Note: The QualType case is handled differently, since this
-	// results in one of the VisitType family of methods being called
-	// that takes a Type* instead of a QualType.
 	bool TraverseType(clang::QualType qualType) {
-		return traverseImpl3(qualType,
+		return traverseImpl3a(qualType,
 		  [this](auto qualType){return qualType.isNull();},
 		  [this](auto qualType){return Base::TraverseType(qualType);},
-		  "Type");
+		  [this](auto qualType){return xVisitType(qualType.getTypePtr());},
+		  "QualType");
 	}
 
 	bool TraverseTypeLoc(clang::TypeLoc typeLoc) {
@@ -383,18 +397,21 @@ public:
 
 	bool xVisitConceptReference(clang::ConceptReference* cr) {
 		++visitCount_;
+		++conceptRefCount_;
 		treeFormatter_.addNode(makeDesc("ConceptReference"));
 		return true;
 	}
 
 	bool xVisitCXXBaseSpecifier(clang::CXXBaseSpecifier loc) {
 		++visitCount_;
+		++cxxBaseSpecCount_;
 		treeFormatter_.addNode(makeDesc("CXXBaseSpecifier"));
 		return true;
 	}
 
 	bool xVisitConstructorInitializer(clang::CXXCtorInitializer* init) {
 		++visitCount_;
+		++ctorInitCount_;
 		treeFormatter_.addNode(makeDesc("CXXCtorInitializer"));
 		return true;
 	}
@@ -415,8 +432,9 @@ public:
 	}
 
 	// ???
-	bool VisitLambdaCapture(const clang::LambdaCapture *capture) {
+	bool xVisitLambdaCapture(const clang::LambdaCapture *capture) {
 		++visitCount_;
+		++lambdaCaptureCount_;
 		std::string desc = makeDesc("LambdaCapture");
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
@@ -425,6 +443,7 @@ public:
 
 	bool xVisitNestedNameSpecifier(clang::NestedNameSpecifier* nns) {
 		++visitCount_;
+		++nestedNameSpecCount_;
 		std::string desc = makeDesc("NestedNameSpecifier");
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
@@ -433,15 +452,25 @@ public:
 
 	bool xVisitNestedNameSpecifierLoc(clang::NestedNameSpecifierLoc loc) {
 		++visitCount_;
+		++nestedNameSpecLocCount_;
 		std::string desc = makeDesc("NestedNameSpecifierLoc");
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
 		return true;
 	}
 
-	// ObjCProtocolLoc
+#if 0
+	// NOTE: This is not currently used.
+	bool xVisitObjCProtocolLoc(clang::ObjCProtocolLoc loc) {
+		return true;
+	}
+#endif
 
-	// OMPClause
+	bool xVisitOMPClause(clang::OMPClause* node) {
+		++visitCount_;
+		assert(node);
+		return true;
+	}
 
 	bool xVisitStmt(clang::Stmt* stmt) {
 		++visitCount_;
@@ -456,6 +485,7 @@ public:
 
 	bool xVisitTemplateArgument(clang::TemplateArgument arg) {
 		++visitCount_;
+		++tempArgCount_;
 		std::string desc = makeDesc("TemplateArgument");
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
@@ -464,6 +494,7 @@ public:
 
 	bool xVisitTemplateArgumentLoc(clang::TemplateArgumentLoc loc) {
 		++visitCount_;
+		++tempArgLocCount_;
 		std::string desc = makeDesc("TemplateArgumentLoc");
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
@@ -472,11 +503,14 @@ public:
 
 	bool xVisitTemplateName(clang::TemplateName name) {
 		++visitCount_;
+		++tempNameCount_;
 		std::string desc = makeDesc("TemplateName");
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
 		return true;
 	}
+
+#ifndef ENABLE_TYPEVISITOR
 
 	bool VisitType(clang::Type* type) {
 		++visitCount_;
@@ -490,6 +524,19 @@ public:
 		return true;
 	}
 
+#else
+
+	bool xVisitType(const clang::Type* type) {
+		DumpTypeVisitor visitor(this);
+		visitor.Visit(type);
+		++visitCount_;
+		++typeCount_;
+		assert(type);
+		return true;
+	}
+
+#endif
+
 	bool xVisitTypeLoc(clang::TypeLoc typeLoc) {
 		++visitCount_;
 		++typeLocCount_;
@@ -501,14 +548,6 @@ public:
 		treeFormatter_.addNode(desc);
 		return true;
 	}
-
-#if 0
-	bool VisitComment(clang::comments::Comment* comment) {
-		++visitCount_;
-		treeFormatter_.addNode("comments::Comment");
-		return true;
-	}
-#endif
 
 private:
 
@@ -529,7 +568,41 @@ private:
 	BigInt stmtCount_ = 0;
 	BigInt typeCount_ = 0;
 	BigInt typeLocCount_ = 0;
+	std::size_t conceptRefCount_ = 0;
+	std::size_t cxxBaseSpecCount_ = 0;
+	std::size_t ctorInitCount_ = 0;
+	std::size_t lambdaCaptureCount_ = 0;
+	std::size_t nestedNameSpecCount_ = 0;
+	std::size_t nestedNameSpecLocCount_ = 0;
+	std::size_t tempArgCount_ = 0;
+	std::size_t tempArgLocCount_ = 0;
+	std::size_t tempNameCount_ = 0;
+	std::size_t objcProtocolLocCount_ = 0;
+
 	bool doTemplateInstantiations_;
 };
+
+inline void DumpTypeVisitor::VisitType(const clang::Type* type)
+{
+	TreeFormatter<llvm::raw_ostream>& treeFormatter_ = dumper_->treeFormatter_;
+	std::string name = type->getTypeClassName();
+	std::string desc = dumper_->makeDesc(std::format("type {}Type",
+	  type->getTypeClassName()));
+	dumper_->logf(1, "{}", desc);
+	dumper_->treeFormatter_.addNode(desc);
+}
+
+#ifdef ENABLE_BUILTINTYPE
+inline void DumpTypeVisitor::VisitBuiltinType(const clang::BuiltinType* type)
+{
+	clang::PrintingPolicy printPolicy(*dumper_->langOpts_);
+	TreeFormatter<llvm::raw_ostream>& treeFormatter_ = dumper_->treeFormatter_;
+	std::string name = type->getTypeClassName();
+	std::string desc = dumper_->makeDesc(std::format("type {}Type {}",
+	  type->getTypeClassName(), std::string(type->getName(printPolicy))));
+	dumper_->logf(1, "{}", desc);
+	dumper_->treeFormatter_.addNode(desc);
+}
+#endif
 
 #endif

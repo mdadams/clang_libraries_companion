@@ -46,8 +46,9 @@ verbose=0
 source_files=()
 extra_args=(-std=c++20)
 out_dir="$build_dir/output"
+pause=0
 
-while getopts va:o: option; do
+while getopts va:o:p option; do
 	case "$option" in
 	v)
 		verbose=$((verbose + 1));;
@@ -55,6 +56,8 @@ while getopts va:o: option; do
 		extra_args+=("$OPTARG");;
 	o)
 		out_dir="$OPTARG";;
+	p)
+		pause=1;;
 	*)
 		usage;;
 	esac
@@ -91,6 +94,13 @@ for source_file in "${source_files[@]}"; do
 	run_command \
 	  "$save_program" "${save_options[@]}" -o "$ast_file" "$source_file" || \
 	  panic "tool failed"
+
+	if [ "$pause" -ne 0 ]; then
+		print_separator
+		echo -n "Press enter to continue."
+		read buffer
+		print_separator
+	fi
 
 	print_separator
 	load_options=()
