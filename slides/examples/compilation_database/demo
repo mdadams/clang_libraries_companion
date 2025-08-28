@@ -24,48 +24,100 @@ source_dir="$cmake_source_dir"
 build_dir="$cmake_binary_dir"
 data_dir="$source_dir/data"
 run_clang_tool="$source_dir/run_clang_tool"
+real_data_dir="@DATA_DIR@"
 
 ################################################################################
 
-demo=adjuster
+command_terminator="__EOC__"
+
+default_commands=(
+	fixed "$command_terminator"
+	json "$command_terminator"
+	adjuster -a 0 "$command_terminator"
+	adjuster -a 1 "$command_terminator"
+	adjuster -a 2 "$command_terminator"
+	response 0 "$command_terminator"
+	response 1 "$command_terminator"
+)
+
+
 if [ $# -ge 1 ]; then
-	demo="$1"
-	shift 1
+	commands=("$@" "$command_terminator")
+else
+	commands=("${default_commands[@]}")
 fi
-options=("$@")
 
-case "$demo" in
+while [ "${#commands[@]}" -ne 0 ]; do
 
-json)
-	run_command \
-	  "$build_dir/json_database" \
-	  "$source_dir/data/compile_commands.json" \
-	  "${options[@]}" || \
-	  panic "tool failed"
-	;;
+	demo=("${commands[0]}")
 
-fixed)
-	run_command \
-	  "$build_dir/fixed_database" \
-	  "$source_dir/data/fixed_compilation_database.txt" \
-	  hello.cpp \
-	  goodbye.cpp \
-	  "${options[@]}" || \
-	  panic "tool failed"
-	;;
+	# Pop the first element from the array.
+	unset commands[0]
+	commands=("${commands[@]}")
 
-adjuster)
-	base_options=(
-	  #-f "$source_dir/data/fixed_compilation_database.txt"
-	  -j "$source_dir/data/compile_commands.json"
-	  -a 0
-	)
-	run_command \
-	  "$build_dir/arg_adjuster" \
-	  "${base_options[@]}" \
-	  "${options[@]}" \
-	  hello.cpp || \
-	  panic "tool failed"
-	;;
+	options=()
+	while [ "${#commands[@]}" -ne 0 ]; do
 
-esac
+		option=("${commands[0]}")
+
+		# Pop the first element from the array.
+		unset commands[0]
+		commands=("${commands[@]}")
+
+		if [ "x$option" == "x$command_terminator" ]; then
+			break
+		fi
+		options+=("$option")
+
+	done
+
+	echo "============================================================"
+	echo "demo: $demo"
+	echo "options: ${options[*]}"
+	echo "============================================================"
+
+	case "$demo" in
+
+	json)
+		run_command \
+		  "$build_dir/json_database" \
+		  "$real_data_dir/compile_commands-simple.json" \
+		  "${options[@]}" || \
+		  panic "tool failed"
+		;;
+
+	fixed)
+		run_command \
+		  "$build_dir/fixed_database" \
+		  "$real_data_dir/fixed_compilation_database.txt" \
+		  hello.cpp \
+		  goodbye.cpp \
+		  "${options[@]}" || \
+		  panic "tool failed"
+		;;
+
+	adjuster)
+		base_options=(
+		  #-f "$real_data_dir/fixed_compilation_database.txt"
+		  -j "$real_data_dir/compile_commands-simple.json"
+		  -a 0
+		)
+		run_command \
+		  "$build_dir/arg_adjuster" \
+		  "${base_options[@]}" \
+		  "${options[@]}" \
+		  hello.cpp || \
+		  panic "tool failed"
+		;;
+
+	response)
+		run_command \
+		  "$build_dir/response" \
+		  "$real_data_dir/compile_commands-rsp.json" \
+		  "${options[@]}" || \
+		  panic "tool failed"
+		;;
+
+	esac
+
+done

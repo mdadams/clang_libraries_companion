@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
 	}
 	std::vector<ct::CompileCommand> compCommands =
 	  compDatabase->getAllCompileCommands();
-	printCompCommands(llvm::outs(), compCommands);
+	if (argc <= 2) {printCompCommands(llvm::outs(), compCommands);}
 	for (int i = 2; i < argc; ++i) {
 		std::vector<ct::CompileCommand> compCommands =
 		  compDatabase->getCompileCommands(argv[i]);

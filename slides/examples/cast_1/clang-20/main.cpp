@@ -43,7 +43,7 @@ void MyMatchCallback::run(const cam::MatchFinder::MatchResult& result) {
 	const clang::Expr* sourceExpr = castExpr->getSubExpr();
 	clang::QualType sourceQualType = sourceExpr->getType();
 	clang::PrintingPolicy pp(astContext.getLangOpts());
-	pp.PrintAsCanonical = 1;
+	pp.PrintCanonicalTypes = 1;
 	llvm::outs() << std::format(
 	  "location: {}\ncast: {}\nfrom type: {}\nto type: {}\n\n",
 	  locationToString(sourceManager, loc), getCastName(castExpr),

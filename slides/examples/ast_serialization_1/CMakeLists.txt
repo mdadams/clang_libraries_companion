@@ -1,21 +1,31 @@
 cmake_minimum_required(VERSION 3.14)
+
 project(ast_serialization_1 LANGUAGES CXX C)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 include(CheckCXXCompilerFlag)
 include(Sanitizers)
+include(ParseVersion)
 
 #set(CMAKE_VERBOSE_MAKEFILE TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 find_package(ClangFoo REQUIRED)
+parse_version_string("${LLVM_VERSION}" LLVM_MAJOR_VERSION LLVM_MINOR_VERSION
+  LLVM_PATCH_VERSION)
 include(CheckStdFormat)
 import_std_format()
 
 add_executable(load_ast)
-target_sources(load_ast PRIVATE load_ast.cpp)
+if(LLVM_MAJOR_VERSION GREATER_EQUAL 21)
+	set(load_ast_sources load_ast.cpp)
+else()
+	set(load_ast_sources clang-20/load_ast.cpp)
+endif()
+target_sources(load_ast PRIVATE ${load_ast_sources})
 
 add_executable(save_ast)
 target_sources(save_ast PRIVATE save_ast.cpp)

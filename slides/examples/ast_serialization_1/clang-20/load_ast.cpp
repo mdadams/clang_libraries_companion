@@ -75,25 +75,20 @@ private:
 	const clang::LangOptions* langOpts_;
 };
 
-std::unique_ptr<clang::ASTUnit> loadAstUnitFromFile(
-  const std::string& astFile) {
-	auto diagOpts = std::make_shared<clang::DiagnosticOptions>();
+int main(int argc, const char** argv) {
+	lc::ParseCommandLineOptions(argc, argv, "AST deserializer\n");
+	llvm::IntrusiveRefCntPtr<clang::DiagnosticOptions> diagOpts(
+	  new clang::DiagnosticOptions());
 	llvm::IntrusiveRefCntPtr<clang::DiagnosticIDs> diagIDs(
 	  new clang::DiagnosticIDs());
 	llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> diagEngine(
-	  new clang::DiagnosticsEngine(diagIDs, *diagOpts,
-	  new clang::TextDiagnosticPrinter(llvm::errs(), *diagOpts), true));
+	  new clang::DiagnosticsEngine(diagIDs, diagOpts,
+	  new clang::TextDiagnosticPrinter(llvm::errs(), &*diagOpts), true));
 	clang::PCHContainerOperations pchContainerOps;
 	clang::FileSystemOptions fileSysOpts;
-	clang::HeaderSearchOptions headerSearchOpts;
-	return clang::ASTUnit::LoadFromASTFile(astFile,
-	  pchContainerOps.getRawReader(), clang::ASTUnit::LoadEverything,
-	  diagOpts, diagEngine, fileSysOpts, headerSearchOpts, nullptr);
-}
-
-int main(int argc, const char** argv) {
-	lc::ParseCommandLineOptions(argc, argv, "AST deserializer\n");
-	auto astUnit = loadAstUnitFromFile(InputASTFile);
+	std::unique_ptr<clang::ASTUnit> astUnit = clang::ASTUnit::LoadFromASTFile(
+	  InputASTFile, pchContainerOps.getRawReader(),
+	  clang::ASTUnit::LoadEverything, diagEngine, fileSysOpts, nullptr);
 	if (!astUnit) {
 		llvm::errs() << "cannot load AST file\n";
 		return 1;

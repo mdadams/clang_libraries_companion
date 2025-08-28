@@ -1,0 +1,20 @@
+[
+  {
+    "arguments": [
+       "/usr/bin/clang++",
+       "-Irelative",
+       "-DGREET=Hello, World!\\n",
+       "-c",
+       "-o",
+       "dummy_1.o",
+       "@DATA_DIR_NAME@/dummy_1.cpp"
+    ],
+    "directory": "@CMAKE_BINARY_DIR@",
+    "file": "@DATA_DIR_NAME@/dummy_1.cpp"
+  },
+  {
+    "command": "/usr/bin/clang++ -Irelative -DGREET=\"Hello, World!\\\\n\" -c -o dummy_2.o @DATA_DIR_NAME@/dummy_2.cpp",
+    "directory": "@CMAKE_BINARY_DIR@",
+    "file": "@DATA_DIR_NAME@/dummy_2.cpp"
+  }
+]

@@ -10,13 +10,16 @@ on:
 
 jobs:
   build-job:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        #image: [ "ghcr.io/uvic-frodo/clang_libs-ubuntu_24-llvm_20:latest", "ghcr.io/uvic-frodo/clang_libs-fedora_41-llvm_20:latest" ]
+        # NOTE: The repository is assumed to have been granted access to the
+        # package corresponding to each of the images below.
         image:
-          - "ghcr.io/mdadams/clang_libs-ubuntu_24-llvm_20:latest"
-          - "ghcr.io/mdadams/clang_libs-fedora_41-llvm_20:latest"
+          #- "ghcr.io/uvic-aurora/clang_libs-ubuntu_24-llvm_21:latest"
+          #- "ghcr.io/uvic-aurora/clang_libs-fedora_42-llvm_21:latest"
+          - "ghcr.io/mdadams/clang_libs-ubuntu_24-llvm_21:latest"
+          - "ghcr.io/mdadams/clang_libs-fedora_42-llvm_21:latest"
         compiler:
           - gcc
           - clang
