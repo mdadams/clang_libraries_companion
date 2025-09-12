@@ -14,7 +14,7 @@ target_include_directories(cal BEFORE PUBLIC
   #"${CMAKE_CURRENT_BINARY_DIR}/include"
   #${LLVM_INCLUDE_DIRS}
 )
-target_link_libraries(cal PRIVATE Boost::filesystem)
+target_link_libraries(cal PRIVATE Boost::filesystem Boost::headers)
 target_link_libraries(cal PRIVATE ClangFoo::clangcpp ClangFoo::llvm)
 target_link_libraries(cal PRIVATE ${CMAKE_THREAD_LIBS_INIT})
 

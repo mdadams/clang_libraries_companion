@@ -31,7 +31,8 @@ public:
 		const clang::LangOptions& langOpts = compInstance_->getLangOpts();
 		clang::TranslationUnitDecl* tuDecl =
 		  astContext.getTranslationUnitDecl();
-		AstDumper visitor(sourceManager, langOpts, &(llvm::outs()));
+		AstDumper visitor(astContext, sourceManager, langOpts,
+		  &(llvm::outs()));
 		visitor.setLogLevel(clLogLevel);
 		visitor.doTemplateInstantiations(clVisitTemplateInstantiations);
 		visitor.setPrefix(clLogLevel >= 1 ? "TREE: " : "");

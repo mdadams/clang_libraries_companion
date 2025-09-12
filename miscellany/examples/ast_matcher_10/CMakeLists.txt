@@ -12,7 +12,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(Boost REQUIRED COMPONENTS filesystem)
+#find_package(Boost 1.80 CONFIG REQUIRED COMPONENTS headers system filesystem)
 find_package(ClangFoo REQUIRED)
 find_package(CAL REQUIRED CONFIG)
 include(CheckStdFormat)
@@ -26,8 +26,10 @@ if(ENABLE_EXPERIMENTAL)
 	target_compile_definitions(matcher PRIVATE ENABLE_EXPERIMENTAL)
 endif()
 
+#target_link_libraries(matcher PRIVATE ClangFoo::llvm ClangFoo::clangcpp
+#  Boost::filesystem Boost::headers CAL::CAL)
 target_link_libraries(matcher PRIVATE ClangFoo::llvm ClangFoo::clangcpp
-  Boost::filesystem CAL::CAL)
+  CAL::CAL)
 
 set(test_sources
   data/empty.cpp

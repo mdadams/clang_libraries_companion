@@ -4,15 +4,29 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
 #include <boost/filesystem.hpp>
-#include <boost/process/environment.hpp>
-#include <boost/process.hpp>
-#include <boost/process/search_path.hpp>
 #include <boost/tokenizer.hpp>
+#if __has_include(<boost/process/v1/child.hpp>)
+#	include <boost/process/v1/args.hpp>
+#	include <boost/process/v1/child.hpp>
+#	include <boost/process/v1/environment.hpp>
+#	include <boost/process/v1/io.hpp>
+#	include <boost/process/v1/search_path.hpp>
+#	define BOOST_PROCESS_V1_NAMESPACE boost::process::v1
+#else
+#	include <boost/process/args.hpp>
+#	include <boost/process/child.hpp>
+#	include <boost/process/io.hpp>
+#	include <boost/process/environment.hpp>
+#	include <boost/process/search_path.hpp>
+#	define BOOST_PROCESS_V1_NAMESPACE boost::process
+#endif
+
 #include "cal/main.hpp"
 
 namespace bf = boost::filesystem;
-namespace bp = boost::process;
+namespace bp = BOOST_PROCESS_V1_NAMESPACE;
 
 namespace cal {
 
@@ -152,7 +166,7 @@ std::string getClangProgramPath()
 {
 #if defined(CAL_HANDLE_CCACHE)
 	std::vector<bf::path> searchPath = boost::this_process::path();
-	auto clangPath = boost::process::search_path(bf::path("clang++"),
+	auto clangPath = bp::search_path(bf::path("clang++"),
 	  searchPath);
 	if (clangPath.has_parent_path()) {
 		bf::path dirPath = clangPath.parent_path();
@@ -165,13 +179,13 @@ std::string getClangProgramPath()
 					newSearchPath.push_back(*i);
 				}
 			}
-			clangPath = boost::process::search_path(bf::path("clang++"),
+			clangPath = bp::search_path(bf::path("clang++"),
 			  newSearchPath);
 		}
 	}
 	return clangPath.string();
 #else
-	auto path = boost::process::search_path(
+	auto path = bp::search_path(
 	  bf::path("clang++"));
 	return path.string();
 #endif

@@ -1,13 +1,8 @@
 #include <format>
 #include <tuple>
-#include <boost/process/search_path.hpp>
-#include <boost/process.hpp>
 #include <clang/Lex/Lexer.h>
 
 #include "clang_utility.hpp"
-
-namespace bf = boost::filesystem;
-namespace bp = boost::process;
 
 std::pair<bool, std::string> sourceRangeToText(const clang::SourceManager&
   sourceManager, clang::SourceRange sourceRange, bool tokenRange) {

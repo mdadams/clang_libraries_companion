@@ -1,8 +1,11 @@
 #ifndef AstDumper_hpp
 #define AstDumper_hpp
 
-#define ENABLE_TYPEVISITOR
-#define ENABLE_BUILTINTYPE
+#define ENABLE_VISIT_TYPELOCS		/* normally enable */
+#define ENABLE_TYPEVISITOR			/* normally enable */
+#define ENABLE_BUILTINTYPE			/* normally enable */
+#define ENABLE_WALKTYPESOFTYPELOCS	/* normally enable */
+//#define ENABLE_TYPELOC_VISIT_TYPE	/* normally disable */
 
 #include <format>
 #include <stack>
@@ -20,6 +23,16 @@
 #include "clang_utility_1.hpp"
 #include "TreeFormatter.hpp"
 
+std::string getNestedNameSpecAsString(clang::NestedNameSpecifier* nns,
+  const clang::PrintingPolicy& pp)
+{
+	std::string buffer;
+	llvm::raw_string_ostream os(buffer);
+	nns->print(os, pp);
+	os.flush();
+	return buffer;
+}
+
 class AstDumper;
 
 class DumpTypeVisitor : public clang::TypeVisitor<DumpTypeVisitor> {
@@ -32,7 +45,8 @@ public:
 #endif
 };
 
-class AstDumper : public clang::RecursiveASTVisitor<AstDumper> {
+class AstDumper : public clang::RecursiveASTVisitor<AstDumper>
+{
 public:
 
 	friend class DumpTypeVisitor;
@@ -74,9 +88,11 @@ public:
 	AST Dumper API
 	*/
 
-	AstDumper(clang::SourceManager& sourceManager,
+	AstDumper(clang::ASTContext& astContext,
+	  clang::SourceManager& sourceManager,
 	  const clang::LangOptions& langOpts, llvm::raw_ostream* out) :
-	  sourceManager_(&sourceManager), langOpts_(&langOpts), out_(out),
+	  astContext_(&astContext), sourceManager_(&sourceManager),
+	  langOpts_(&langOpts), out_(out),
 	  treeFormatter_() {
 		treeFormatter_.setOutput(*out);
 	}
@@ -187,7 +203,11 @@ public:
 	bool shouldWalkTypesOfTypeLocs() {
 		// NOTE: If true is returned, multiple visits will be performed
 		// for TypeLoc nodes, which will mess up the formatted tree output.
+#ifdef ENABLE_WALKTYPESOFTYPELOCS
 		return true;
+#else
+		return false;
+#endif
 	}
 
 	bool shouldVisitLambdaBody() {
@@ -372,13 +392,28 @@ public:
 		  "QualType");
 	}
 
+#ifdef ENABLE_VISIT_TYPELOCS
 	bool TraverseTypeLoc(clang::TypeLoc typeLoc) {
+		auto visit = [this](auto typeLoc){
+#ifdef ENABLE_TYPELOC_VISIT_TYPE
+			return xVisitTypeLoc(typeLoc) &&
+			  xVisitType(typeLoc.getType().getTypePtr());
+#else
+			return xVisitTypeLoc(typeLoc);
+#endif
+		};
 		return traverseImpl3a(typeLoc,
 		  [this](auto typeLoc){return typeLoc.isNull();},
 		  [this](auto typeLoc){return Base::TraverseTypeLoc(typeLoc);},
-		  [this](auto typeLoc){return xVisitTypeLoc(typeLoc);},
+		  //[this](auto typeLoc){return xVisitTypeLoc(typeLoc);},
+		  visit,
 		  "TypeLoc");
 	}
+#else
+	bool TraverseTypeLoc(clang::TypeLoc typeLoc) {
+		return true;
+	}
+#endif
 
 	/************************************************************\
 	Visit Functions
@@ -389,7 +424,8 @@ public:
 		++attrCount_;
 		assert(attr);
 		std::string desc{makeDesc(
-		  std::format("Attr {}", attr->getSpelling()))};
+		  std::format("Attr {} [{}]", attr->getSpelling(),
+		  static_cast<const void*>(attr)))};
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
 		return true;
@@ -420,7 +456,8 @@ public:
 		++visitCount_;
 		++declCount_;
 		assert(decl);
-		std::string label = std::format("{}Decl", decl->getDeclKindName());
+		std::string label = std::format("{}Decl [{}]", decl->getDeclKindName(),
+		  static_cast<const void*>(decl));
 		if (auto namedDecl = llvm::dyn_cast<clang::NamedDecl>(decl);
 		  namedDecl) {
 			label += std::format("; name {}", namedDecl->getNameAsString());
@@ -444,7 +481,10 @@ public:
 	bool xVisitNestedNameSpecifier(clang::NestedNameSpecifier* nns) {
 		++visitCount_;
 		++nestedNameSpecCount_;
-		std::string desc = makeDesc("NestedNameSpecifier");
+		const clang::PrintingPolicy& printPolicy =
+		  astContext_->getPrintingPolicy();
+		std::string s = getNestedNameSpecAsString(nns, printPolicy);
+		std::string desc = makeDesc(std::format("NestedNameSpecifier {}", s));
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
 		return true;
@@ -453,7 +493,14 @@ public:
 	bool xVisitNestedNameSpecifierLoc(clang::NestedNameSpecifierLoc loc) {
 		++visitCount_;
 		++nestedNameSpecLocCount_;
-		std::string desc = makeDesc("NestedNameSpecifierLoc");
+		const clang::PrintingPolicy& printPolicy =
+		  astContext_->getPrintingPolicy();
+		clang::NestedNameSpecifier* nns = loc.getNestedNameSpecifier();
+		std::string s = getNestedNameSpecAsString(
+		  nns, printPolicy);
+		std::string desc = makeDesc(std::format(
+		  "NestedNameSpecifierLoc {}\n<{}>", s,
+		  static_cast<const void*>(nns)));
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
 		return true;
@@ -476,8 +523,9 @@ public:
 		++visitCount_;
 		++stmtCount_;
 		assert(stmt);
-		std::string desc = makeDesc(std::format("type {}",
-		  stmt->getStmtClassName()), stmt->getSourceRange());
+		std::string desc = makeDesc(std::format("type {} [{}]",
+		  stmt->getStmtClassName(), static_cast<const void*>(stmt)),
+		  stmt->getSourceRange());
 		logf(1, "{}", desc);
 		treeFormatter_.addNode(desc);
 		return true;
@@ -510,8 +558,16 @@ public:
 		return true;
 	}
 
-#ifndef ENABLE_TYPEVISITOR
+	bool xVisitType(const clang::Type* type) {
+		DumpTypeVisitor visitor(this);
+		visitor.Visit(type);
+		++visitCount_;
+		++typeCount_;
+		assert(type);
+		return true;
+	}
 
+#if 0
 	bool VisitType(clang::Type* type) {
 		++visitCount_;
 		++typeCount_;
@@ -523,21 +579,23 @@ public:
 		treeFormatter_.addNode(desc);
 		return true;
 	}
-
-#else
-
-	bool xVisitType(const clang::Type* type) {
-		DumpTypeVisitor visitor(this);
-		visitor.Visit(type);
-		++visitCount_;
-		++typeCount_;
-		assert(type);
-		return true;
-	}
-
 #endif
 
 	bool xVisitTypeLoc(clang::TypeLoc typeLoc) {
+		++visitCount_;
+		++typeLocCount_;
+		assert(!typeLoc.isNull());
+		const clang::Type* type = typeLoc.getType().getTypePtr();
+		std::string desc = makeDesc(std::format("type {}TypeLoc\n<{}>",
+		  typeLoc.getType().getTypePtr()->getTypeClassName(), static_cast<const void*>(type)),
+		  typeLoc.getSourceRange());
+		logf(1, "{}", desc);
+		treeFormatter_.addNode(desc);
+		return true;
+	}
+
+#if 0
+	bool VisitTypeLoc(clang::TypeLoc typeLoc) {
 		++visitCount_;
 		++typeLocCount_;
 		assert(!typeLoc.isNull());
@@ -548,6 +606,7 @@ public:
 		treeFormatter_.addNode(desc);
 		return true;
 	}
+#endif
 
 private:
 
@@ -559,6 +618,7 @@ private:
 	llvm::raw_ostream* out_;
 	int logLevel_ = 0;
 	BigInt nextNodeId_ = -1;
+	clang::ASTContext* astContext_;
 	clang::SourceManager* sourceManager_;
 	const clang::LangOptions* langOpts_;
 	TreeFormatter<llvm::raw_ostream> treeFormatter_;
@@ -586,8 +646,8 @@ inline void DumpTypeVisitor::VisitType(const clang::Type* type)
 {
 	TreeFormatter<llvm::raw_ostream>& treeFormatter_ = dumper_->treeFormatter_;
 	std::string name = type->getTypeClassName();
-	std::string desc = dumper_->makeDesc(std::format("type {}Type",
-	  type->getTypeClassName()));
+	std::string desc = dumper_->makeDesc(std::format("type {}Type [{}]",
+	  type->getTypeClassName(), static_cast<const void*>(type)));
 	dumper_->logf(1, "{}", desc);
 	dumper_->treeFormatter_.addNode(desc);
 }
@@ -598,8 +658,9 @@ inline void DumpTypeVisitor::VisitBuiltinType(const clang::BuiltinType* type)
 	clang::PrintingPolicy printPolicy(*dumper_->langOpts_);
 	TreeFormatter<llvm::raw_ostream>& treeFormatter_ = dumper_->treeFormatter_;
 	std::string name = type->getTypeClassName();
-	std::string desc = dumper_->makeDesc(std::format("type {}Type {}",
-	  type->getTypeClassName(), std::string(type->getName(printPolicy))));
+	std::string desc = dumper_->makeDesc(std::format("type {}Type {} [{}]",
+	  type->getTypeClassName(), std::string(type->getName(printPolicy)),
+	  static_cast<const void*>(type)));
 	dumper_->logf(1, "{}", desc);
 	dumper_->treeFormatter_.addNode(desc);
 }
