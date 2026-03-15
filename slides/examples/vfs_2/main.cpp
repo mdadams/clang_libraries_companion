@@ -37,7 +37,7 @@ std::unique_ptr<ct::CompilationDatabase> makeCompDatabase(
 	return ct::FixedCompilationDatabase::loadFromBuffer(".", buffer, errText);
 }
 
-static lc::opt<std::string> clangIncDir("clang-include-dir", lc::Required);
+static lc::list<std::string> extraArgs("extra-arg", lc::ZeroOrMore);
 static lc::list<std::string> sourcePaths(lc::Positional, lc::ZeroOrMore);
 
 std::string headerSource = R"(
@@ -61,9 +61,8 @@ int main() {
 
 int main(int argc, const char** argv) {
 	lc::ParseCommandLineOptions(argc, argv, "VFS example");
-	std::vector<std::string> compOptions{
-	  std::format("-I{}", std::string(clangIncDir)), "-std=c++20",
-	};
+	std::vector<std::string> compOptions;
+	for (auto arg : extraArgs) {compOptions.push_back(arg);}
 	auto compDatabase = makeCompDatabase(compOptions);
 	if (!compDatabase) {
 		llvm::errs() << "cannot create compilation database\n";

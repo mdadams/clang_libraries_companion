@@ -28,7 +28,7 @@ print_separator()
 source_dir="$cmake_source_dir"
 build_dir="$cmake_binary_dir"
 data_dir="$source_dir/data"
-get_clang_include_dir="$source_dir/get_clang_include_dir"
+clang_info="$source_dir/clang_info"
 
 ################################################################################
 
@@ -63,8 +63,9 @@ if [ "${#source_files[@]}" -eq 0 ]; then
 	source_files+=("$data_dir"/example_1.cpp)
 fi
 
-clang_inc_dir="$("$get_clang_include_dir")" || \
-  panic "cannot get Clang include directory"
+clang_res_dir="$("$clang_info" resource_dir)" || \
+  panic "cannot get Clang resource directory"
+clang_inc_dir="$clang_res_dir/include"
 
 for source_file in "${source_files[@]}"; do
 

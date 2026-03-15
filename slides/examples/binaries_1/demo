@@ -1,0 +1,71 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+################################################################################
+
+eecho()
+{
+	echo "$*" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	eecho "RUNNING: $*"
+	"$@"
+	local status=$?
+	eecho "EXIT STATUS: $status"
+	return "$status"
+}
+
+check_status()
+{
+	local should_succeed="$1"
+	shift 1
+	local command=("$@")
+	"${command[@]}"
+	local status=$?
+	if [ "$should_succeed" -ne 0 ]; then
+		eecho "EXPECTING SUCCESS"
+		if [ "$status" -ne 0 ]; then
+			eecho "EXPECTED SUCCESS BUT FAILED"
+			return 1
+		fi
+	else
+		eecho "EXPECTING FAILURE"
+		if [ "$status" -eq 0 ]; then
+			eecho "EXPECTED FAILURE BUT SUCCEEDED"
+			return 1
+		fi
+	fi
+	return 0
+}
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+
+################################################################################
+
+getchararray="$build_dir/getchararray"
+printsyminfo="$build_dir/printsyminfo"
+
+syms=(hello goodbye text)
+for sym in "${syms[@]}"; do
+	check_status 1 \
+	  run_command "$getchararray" "$getchararray" "$sym" || panic
+done
+
+syms=(text)
+for sym in "${syms[@]}"; do
+	check_status 1 \
+	  run_command "$printsyminfo" "$getchararray" "$sym" || panic
+done

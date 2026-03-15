@@ -22,13 +22,15 @@ usage()
 	exit 2
 }
 
+num_jobs=8
+method=web
 install_dir=
 build_dir=
 version=
 verbose=0
 sde_install_clang=
 
-while getopts :vV:B:I:X: option; do
+while getopts :vV:B:I:X:m: option; do
 	case "$option" in
 	v)
 		verbose=$((verbose + 1));;
@@ -40,6 +42,8 @@ while getopts :vV:B:I:X: option; do
 		install_dir="$OPTARG";;
 	X)
 		sde_install_clang="$OPTARG";;
+	m)
+		method="$OPTARG";;
 	*)
 		usage;;
 	esac
@@ -63,7 +67,7 @@ fi
 if [ -z "$sde_install_clang" ]; then
 
 	sde_git_repo="https://github.com/mdadams/sde.git"
-	sde_version="v13.0.9"
+	sde_version="v13.5.22"
 
 	git_dir="$build_dir/git"
 
@@ -77,9 +81,26 @@ if [ -z "$sde_install_clang" ]; then
 
 fi
 
+case "$method" in
+git)
+	install_version_opts=(
+		--method git
+		--version llvmorg-$version
+	)
+	;;
+web)
+	install_version_opts=(
+		--method web
+		--version $version
+	)
+	;;
+*)
+	install_version_opts=()
+	;;
+esac
+
 install_opts=(
-	--method git
-	--version llvmorg-$version
+	"${install_version_opts[@]}"
 	--build-type Release
 	##########
 	--strip
@@ -87,20 +108,16 @@ install_opts=(
 	--cleanup
 	--no-keep-source
 	##########
-	--default-projects
-	###--project clang:clang-tools-extra:compiler-rt:lld:libclc:polly
-	##--project clang:clang-tools-extra:compiler-rt:lld:polly
-	--default-projects-runtimes
+	#--default-projects
+	--project "clang:clang-tools-extra:lld:libclc:polly:openmp"
+	#--default-projects-runtimes
+	--runtime "compiler-rt:libcxx:libcxxabi:libunwind"
 	#--default-targets
 	--target X86
 	##########
-	--num-jobs 8
-	--num-parallel-compile-jobs 8
+	--num-jobs "$num_jobs"
+	--num-parallel-compile-jobs "$num_jobs"
 	--num-parallel-link-jobs 1
-	##########
-	#--num-jobs 1
-	#--num-parallel-compile-jobs 1
-	#--num-parallel-link-jobs 1
 	##########
 	--install-dir "$install_dir"
 )

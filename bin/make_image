@@ -1,0 +1,170 @@
+#! /usr/bin/env bash
+
+eecho()
+{
+	echo "$*" 1>&2
+}
+
+panic()
+{
+	echo "ERROR: $*" 1>&2
+	exit 1
+}
+
+run_command()
+{
+	local execute="${run_command_execute:-0}"
+	local verbose="${run_command_verbose:-0}"
+	local args=("$@")
+	if [ "$verbose" -ge 1 -o "$execute" -eq 0 ]; then
+		eecho "RUNNING: ${args[*]}"
+	fi
+	local status
+	if [ "$execute" -ne 0 ]; then
+		"${args[@]}"
+		status=$?
+	else
+		status=0
+	fi
+	if [ "$verbose" -ge 2 ]; then
+		eecho "EXIT STATUS: $status"
+	fi
+	return "$status"
+}
+
+self_abspath="$(readlink -f "$0")" || \
+  panic "cannot get program path"
+self_dir_abspath="$(dirname "$self_abspath")" || \
+  panic "cannot get program directory"
+data_dir_abspath="$(readlink -f "$self_dir_abspath/../podman")" || \
+  panic "cannot get data directory"
+
+podman=
+is_podman=
+if [ -z "$podman" ]; then
+	podman="$(type -P podman)" || podman=
+	if [ -n "$podman" ]; then
+		is_podman=1
+	fi
+fi
+if [ -z "$podman" ]; then
+	podman="$(type -P docker)" || podman=
+	if [ -n "$podman" ]; then
+		is_podman=0
+	fi
+fi
+if [ -z "$podman" ]; then
+	panic "cannot find podman or docker program"
+fi
+
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+
+	Options
+	=======
+
+	-N \$os_name
+	    Set the OS name to \$os_name.
+	    Valid values: fedora, ubuntu.
+	-R \$os_release
+	    Set the OS release to \$os_release (e.g., 43, 24.04, etc.).
+	-L \$llvm_version
+	    Set the LLVM version to \$llvm_version (e.g., 22.1.0).
+	-i \$image_name
+	    Set the name of output image to \$image_name.
+
+	Examples
+	========
+
+	To build the default image:
+	$0
+
+	To build an image for Ubuntu 24.04 and LLVM 22.1.0:
+	$0 -N ubuntu -R 24.04 -L 22.1.0 -i clang-companion-ubuntu-24-llvm-22
+
+	To build an image for Fedora 43 and LLVM 22.1.0:
+	$0 -N fedora -R 43 -L 22.1.0 -i clang-companion-fedora-43-llvm-22
+
+	EOF
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+os_name=fedora
+os_release=43
+llvm_version=22.1.0
+image_tag=
+dry_run=0
+verbose=0
+
+while getopts :vnN:R:L:i: option; do
+	case "$option" in
+	v)
+		verbose=$((verbose + 1));;
+	n)
+		dry_run=1;;
+	N)
+		os_name="$OPTARG";;
+	R)
+		os_release="$OPTARG";;
+	L)
+		llvm_version="$OPTARG";;
+	i)
+		image_tag="$OPTARG";;
+	*)
+		usage "invalid option $OPTARG";;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$os_name" ]; then
+	usage "no OS name specified"
+fi
+if [ -z "$os_release" ]; then
+	usage "no OS release specified"
+fi
+if [ -z "$llvm_version" ]; then
+	usage "no LLVM version specified"
+fi
+if [ -z "$image_tag" ]; then
+	image_tag="clang-companion-${os_name}-${os_release}-llvm-${llvm_version}"
+fi
+
+echo "OS name: $os_name"
+echo "OS release: $os_release"
+echo "LLVM version: $llvm_version"
+echo "image name: $image_tag"
+
+run_command_verbose="$verbose"
+if [ "$dry_run" -ne 0 ]; then
+	run_command_execute=0
+else
+	run_command_execute=1
+fi
+
+containerfile_abspath="$data_dir_abspath/$os_name/Containerfile"
+context_abspath="$data_dir_abspath/$os_name"
+common_dir_abspath="$data_dir_abspath/common"
+options=()
+options+=(
+	--build-arg OS_RELEASE="$os_release"
+	--build-arg LLVM_VERSION="$llvm_version"
+)
+if [ "$is_podman" -ne 0 ]; then
+	options+=(--format docker)
+fi
+
+command=(
+	"$podman" build
+	--tag "$image_tag"
+	--build-context common="$common_dir_abspath"
+	-f "$containerfile_abspath"
+	"${options[@]}"
+	"$context_abspath"
+)
+run_command "${command[@]}" || \
+  panic "cannot build image"
+
+echo "image successfully built"

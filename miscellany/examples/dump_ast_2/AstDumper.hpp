@@ -23,6 +23,20 @@
 #include "clang_utility_1.hpp"
 #include "TreeFormatter.hpp"
 
+#if (LLVM_MAJOR_VERSION >= 22)
+
+std::string getNestedNameSpecAsString(clang::NestedNameSpecifier nns,
+  const clang::PrintingPolicy& pp)
+{
+	std::string buffer;
+	llvm::raw_string_ostream os(buffer);
+	nns.print(os, pp);
+	os.flush();
+	return buffer;
+}
+
+#else
+
 std::string getNestedNameSpecAsString(clang::NestedNameSpecifier* nns,
   const clang::PrintingPolicy& pp)
 {
@@ -32,6 +46,8 @@ std::string getNestedNameSpecAsString(clang::NestedNameSpecifier* nns,
 	os.flush();
 	return buffer;
 }
+
+#endif
 
 class AstDumper;
 
@@ -218,6 +234,7 @@ public:
 	Traversal Functions
 	\************************************************************/
 
+	// for real nodes (i.e., nodes with identity)
 	template<class Node, class TraverseNode, class VisitNode>
 	bool traverseImpl1a(Node* node, TraverseNode traverseNode,
 	  VisitNode visitNode, const std::string label = {}) {
@@ -240,6 +257,7 @@ public:
 		return ret;
 	}
 
+	// for fake nodes (i.e., value type)
 	template<class Node, class IsNull, class TraverseNode, class VisitNode>
 	bool traverseImpl3a(Node node, IsNull isNull, TraverseNode traverseNode,
 	  VisitNode visitNode, const std::string& label = {}) {
@@ -322,12 +340,22 @@ public:
 		return true;
 	}
 
+#if (LLVM_MAJOR_VERSION >= 22)
+	bool TraverseNestedNameSpecifier(clang::NestedNameSpecifier nns) {
+		return traverseImpl3a(nns,
+		  [this](auto nns){return false;},
+		  [this](auto nns){return Base::TraverseNestedNameSpecifier(nns);},
+		  [this](auto nns){return xVisitNestedNameSpecifier(nns);},
+		  "NestedNameSpecifier");
+	}
+#else
 	bool TraverseNestedNameSpecifier(clang::NestedNameSpecifier* nns) {
 		return traverseImpl1a(nns,
 		  [this](auto nns){return Base::TraverseNestedNameSpecifier(nns);},
 		  [this](auto nns){return xVisitNestedNameSpecifier(nns);},
 		  "NestedNameSpecifier");
 	}
+#endif
 
 	bool TraverseNestedNameSpecifierLoc(clang::NestedNameSpecifierLoc loc) {
 		return traverseImpl3a(loc, [this](auto loc){return !loc;},
@@ -384,7 +412,13 @@ public:
 		  "TemplateName");
 	}
 
-	bool TraverseType(clang::QualType qualType) {
+	bool TraverseType(
+	  clang::QualType qualType
+#if (LLVM_MAJOR_VERSION >= 22)
+	  ,
+	  bool traverseQualifier = true
+#endif
+	  ) {
 		return traverseImpl3a(qualType,
 		  [this](auto qualType){return qualType.isNull();},
 		  [this](auto qualType){return Base::TraverseType(qualType);},
@@ -393,7 +427,13 @@ public:
 	}
 
 #ifdef ENABLE_VISIT_TYPELOCS
-	bool TraverseTypeLoc(clang::TypeLoc typeLoc) {
+	bool TraverseTypeLoc(
+	  clang::TypeLoc typeLoc
+#if (LLVM_MAJOR_VERSION >= 22)
+	  ,
+	  bool traverseQualifier = true
+#endif
+	  ) {
 		auto visit = [this](auto typeLoc){
 #ifdef ENABLE_TYPELOC_VISIT_TYPE
 			return xVisitTypeLoc(typeLoc) &&
@@ -410,7 +450,13 @@ public:
 		  "TypeLoc");
 	}
 #else
-	bool TraverseTypeLoc(clang::TypeLoc typeLoc) {
+	bool TraverseTypeLoc(
+	  clang::TypeLoc typeLoc
+#if (LLVM_MAJOR_VERSION >= 22)
+	  ,
+	  bool traverseQualifier = true
+#endif
+	  ) {
 		return true;
 	}
 #endif
@@ -478,6 +524,19 @@ public:
 		return true;
 	}
 
+#if (LLVM_MAJOR_VERSION >= 22)
+	bool xVisitNestedNameSpecifier(clang::NestedNameSpecifier nns) {
+		++visitCount_;
+		++nestedNameSpecCount_;
+		const clang::PrintingPolicy& printPolicy =
+		  astContext_->getPrintingPolicy();
+		std::string s = getNestedNameSpecAsString(nns, printPolicy);
+		std::string desc = makeDesc(std::format("NestedNameSpecifier {}", s));
+		logf(1, "{}", desc);
+		treeFormatter_.addNode(desc);
+		return true;
+	}
+#else
 	bool xVisitNestedNameSpecifier(clang::NestedNameSpecifier* nns) {
 		++visitCount_;
 		++nestedNameSpecCount_;
@@ -489,7 +548,24 @@ public:
 		treeFormatter_.addNode(desc);
 		return true;
 	}
+#endif
 
+#if (LLVM_MAJOR_VERSION >= 22)
+	bool xVisitNestedNameSpecifierLoc(clang::NestedNameSpecifierLoc loc) {
+		++visitCount_;
+		++nestedNameSpecLocCount_;
+		const clang::PrintingPolicy& printPolicy =
+		  astContext_->getPrintingPolicy();
+		clang::NestedNameSpecifier nns = loc.getNestedNameSpecifier();
+		std::string s = getNestedNameSpecAsString(
+		  nns, printPolicy);
+		std::string desc = makeDesc(std::format(
+		  "NestedNameSpecifierLoc {}\n", s));
+		logf(1, "{}", desc);
+		treeFormatter_.addNode(desc);
+		return true;
+	}
+#else
 	bool xVisitNestedNameSpecifierLoc(clang::NestedNameSpecifierLoc loc) {
 		++visitCount_;
 		++nestedNameSpecLocCount_;
@@ -505,6 +581,7 @@ public:
 		treeFormatter_.addNode(desc);
 		return true;
 	}
+#endif
 
 #if 0
 	// NOTE: This is not currently used.

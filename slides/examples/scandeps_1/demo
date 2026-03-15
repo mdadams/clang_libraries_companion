@@ -1,0 +1,156 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+################################################################################
+
+eecho()
+{
+	echo "$*" 1>&2
+}
+
+panic()
+{
+	echo "ERROR: $*" 1>&2
+	exit 1
+}
+
+run_command()
+{
+	local execute="${run_command_execute:-1}"
+	echo "RUNNING: $*"
+	echo "============================================================"
+	local status
+	if [ "$execute" -ne 0 ]; then
+		"$@"
+		status=$?
+	else
+		status=0
+	fi
+	echo "============================================================"
+	echo "EXIT STATUS: $status"
+	return "$status"
+}
+
+################################################################################
+
+source_dir="$cmake_source_dir"
+build_dir="$cmake_binary_dir"
+clang_info="$source_dir/clang_info"
+
+scandeps="$build_dir/scandeps"
+clang_res_dir="$("$clang_info" resource_dir)" || \
+  panic "cannot determine Clang resource directory"
+
+usage()
+{
+	cat <<- EOF
+	usage: $0 [options]
+
+	-c \$cdb_path
+	    Specify compilation database path as \$cbd_path.
+	-n
+	    Dry run.
+	EOF
+	echo "BAD USAGE: $*"
+	exit 2
+}
+
+example_dir="$source_dir/../../../cpp_examples/tmp_cmake"
+if [ -d "$example_dir" ]; then
+	paths=(
+		"$example_dir/example_1/compile_commands.json"
+		"$example_dir/example_2/compile_commands.json"
+		"$example_dir/example_3/compile_commands.json"
+		"$example_dir/example_4/compile_commands.json"
+		"$example_dir/example_5/compile_commands.json"
+		"$example_dir/example_6/compile_commands.json"
+	)
+	for path in "${paths[@]}"; do
+		if [ -e "$path" ]; then
+			default_cdb_paths+=("$path")
+		fi
+	done
+else
+	default_cdb_paths=()
+fi
+for i in "${!default_cdb_paths[@]}"; do
+	cdb_path="${default_cdb_paths[$i]}"
+	canon_path="$(realpath "$cdb_path")" || panic
+	default_cdb_paths[$i]="$canon_path"
+done
+
+cdb_paths=()
+dry_run=0
+modules=
+headers=
+
+while getopts :c:nmh option; do
+	case "$option" in
+	c)
+		cdb_paths+=("$OPTARG");;
+	n)
+		dry_run=1;;
+	m)
+		modules=1;;
+	h)
+		headers=1;;
+	*)
+		usage "invalid option $OPTARG";;
+	esac
+done
+shift $((OPTIND - 1))
+
+if [ "${#cdb_paths[@]}" -eq 0 ]; then
+	cdb_paths=("${default_cdb_paths[@]}")
+fi
+
+run_command_execute=1
+if [ "$dry_run" -ne 0 ]; then
+	run_command_execute=0
+fi
+
+base_options=(
+	--resource-dir "$clang_res_dir"
+)
+if [ "$modules" -ne 0 ]; then
+	base_options+=(--modules)
+fi
+if [ "$headers" -ne 0 ]; then
+	base_options+=(--headers)
+fi
+
+fails=()
+echo "clang resource directory: $clang_res_dir"
+for cdb_path in "${cdb_paths[@]}"; do
+
+	#if [ ! -f "$cdb_path" ]; then
+	#	eecho "SKIPPING: missing CDB file $cdb_path"
+	#	continue
+	#fi
+
+	cat <<- EOF
+	######################################################################
+	CDB PATH: $cdb_path
+	######################################################################
+	EOF
+
+	ls -al "$cdb_path"
+	run_command "$scandeps" "${base_options[@]}" --cdb-file "$cdb_path"
+	status=$?
+	if [ "$status" -ne 0 ]; then
+		fails+=("$cdb_path")
+	fi
+
+done
+
+if [ "${#fails[@]}" -ne 0 ]; then
+	echo "THE FOLLOWING TESTS FAILED:"
+	for fail in "${fails[@]}"; do
+		echo "    $fail"
+	done
+	panic "failures were encountered"
+fi

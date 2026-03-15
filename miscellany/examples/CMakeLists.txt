@@ -26,6 +26,14 @@ find_package(Clang REQUIRED CONFIG)
 
 set(cmake_args "")
 list(APPEND cmake_args "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+if(DEFINED CMAKE_TOOLCHAIN_FILE AND NOT CMAKE_TOOLCHAIN_FILE STREQUAL "")
+	list(APPEND cmake_args
+	  "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+endif()
+if(Boost_DIR)
+	list(APPEND cmake_args
+	  "-DBoost_DIR=${Boost_DIR}")
+endif()
 if(CMAKE_VERBOSE_MAKEFILE)
 	list(APPEND cmake_args
 	  "-DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}")
@@ -75,23 +83,24 @@ list(APPEND project_dirs
   ast_from_string
   ast_matcher_10
   ast_visitor_10
-  linter
-  preproc_macros_1
-  headers
-  query_dependencies
-  test_ast_visitor_1
-  template_10
-  template_11
   attribute_2
-  type_1
-  test_ast_matcher_0
-  dump_type
-  lib_use_analyzer
-  mangle_1
-  jsontool
   dump_ast_1
   dump_ast_2
   dump_ast_3
+  dump_type
+  headers
+  jsontool
+  lib_use_analyzer
+  linter
+  mangle_1
+  mbcdb_1
+  preproc_macros_1
+  query_dependencies
+  template_10
+  template_11
+  test_ast_matcher_0
+  test_ast_visitor_1
+  type_1
 )
 
 # A list of the project directories that have install targets.
@@ -112,7 +121,7 @@ list(APPEND nondemoable_project_dirs
 list(APPEND skip_list
   ##########
   type_1
-  lib_use_analyzer
+  #lib_use_analyzer
   linter
   ##########
   dump_type # NOTE/FIXME: Failed assertion.  Might be compiler bug?

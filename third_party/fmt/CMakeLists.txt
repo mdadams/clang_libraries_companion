@@ -9,9 +9,10 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
 
 include(ExternalProject)
 include(FetchContent)
-include(CheckStdFormat)
 
 set(CMAKE_CXX_STANDARD 20)
+
+include(CheckStdFormat)
 
 check_std_format(std_format)
 

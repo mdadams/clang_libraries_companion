@@ -1,0 +1,69 @@
+#! /usr/bin/env bash
+
+################################################################################
+
+cmake_source_dir="@CMAKE_SOURCE_DIR@"
+cmake_binary_dir="@CMAKE_BINARY_DIR@"
+
+################################################################################
+
+eecho()
+{
+	echo "$*" 1>&2
+}
+
+panic()
+{
+	eecho "ERROR: $*"
+	exit 1
+}
+
+run_command()
+{
+	eecho "RUNNING: $*"
+	"$@"
+	local status=$?
+	eecho "EXIT STATUS: $status"
+	return "$status"
+}
+
+check_status()
+{
+	local should_succeed="$1"
+	shift 1
+	local command=("$@")
+	"${command[@]}"
+	local status=$?
+	if [ "$should_succeed" -ne 0 ]; then
+		eecho "EXPECTING SUCCESS"
+		if [ "$status" -ne 0 ]; then
+			eecho "EXPECTED SUCCESS BUT FAILED"
+			return 1
+		fi
+	else
+		eecho "EXPECTING FAILURE"
+		if [ "$status" -eq 0 ]; then
+			eecho "EXPECTED FAILURE BUT SUCCEEDED"
+			return 1
+		fi
+	fi
+	return 0
+}
+
+build_dir="$cmake_binary_dir"
+
+################################################################################
+
+error_program="$build_dir/error_1_main"
+expected_program="$build_dir/expected_1_main"
+
+for i in 1 2 3; do
+	expect_success=0
+	if [ "$i" == 3 ]; then
+		expect_success=1
+	fi
+	echo "=========="
+	check_status "$expect_success" run_command "$error_program" "$i"
+	echo "=========="
+	check_status "$expect_success" run_command "$expected_program" "$i"
+done

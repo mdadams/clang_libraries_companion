@@ -18,8 +18,8 @@ jobs:
         image:
           #- "ghcr.io/uvic-aurora/clang_libs-ubuntu_24-llvm_21:latest"
           #- "ghcr.io/uvic-aurora/clang_libs-fedora_42-llvm_21:latest"
-          - "ghcr.io/mdadams/clang_libs-ubuntu_24-llvm_21:latest"
-          - "ghcr.io/mdadams/clang_libs-fedora_42-llvm_21:latest"
+          - "ghcr.io/mdadams/clang_libs-ubuntu_24-llvm_22:latest"
+          - "ghcr.io/mdadams/clang_libs-fedora_43-llvm_22:latest"
         compiler:
           - gcc
           - clang
@@ -40,4 +40,11 @@ jobs:
         run: |
           echo "image: ${{matrix.image}}"
           echo "compiler: ${{matrix.compiler}}"
-          ./.build/github/build_wrapper ./build --defaults --num-jobs 0 --verbose-makefile --no-fmt --demo
+          ./.build/github/build_wrapper ./build \
+            --dev-defaults \
+            --no-asan-detect-leaks \
+            --no-asan-allow-user-poisoning \
+            --no-fmt \
+            --clean \
+            --demo \
+            --num-jobs 0

@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(Boost_USE_STATIC_LIBS ON)
 find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(ClangFoo REQUIRED)
 include(CheckStdFormat)

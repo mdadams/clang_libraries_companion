@@ -16,6 +16,14 @@ include(ExternalProject)
 set(cmake_args "")
 
 list(APPEND cmake_args "-DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
+if(DEFINED CMAKE_TOOLCHAIN_FILE AND NOT CMAKE_TOOLCHAIN_FILE STREQUAL "")
+	list(APPEND cmake_args
+	  "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+endif()
+if(DEFINED Boost_DIR)
+	list(APPEND cmake_args
+	  "-DBoost_DIR=${Boost_DIR}")
+endif()
 if(DEFINED CMAKE_VERBOSE_MAKEFILE)
 	list(APPEND cmake_args
 	  "-DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE}")
@@ -43,15 +51,24 @@ list(APPEND project_dirs
   ast_matcher_0
   ast_matcher_1
   ast_matcher_2
+  ast_matcher_3
+  ast_matcher_4
+  ast_matcher_5
+  ast_matcher_6
+  ast_serialization_1
   ast_visitor_1
   ast_visitor_2
   ast_visitor_3
   ast_visitor_matcher_1
+  attribute_1
+  binaries_1
+  cast_1
   cfg_1
-  #clang_ast
-  #clang_query
+  #clang_ast # NOTE: There is nothing to build in this directory.
+  #clang_query # NOTE: This directory is not normally built.
   clang_utilities
   command_line
+  command_line_0
   compilation_database
   cpp
   cyclomatic_complexity
@@ -59,26 +76,23 @@ list(APPEND project_dirs
   dump_cfg
   frontend_action
   frontend_action_2
-  liveness_analysis
-  #llvm_clang_usage
-  preprocessor
-  template_1
-  attribute_1
-  ast_matcher_3
-  cast_1
-  ast_matcher_4
-  ast_matcher_5
-  command_line_0
-  ast_matcher_6
-  ast_serialization_1
-  vfs_2
-  raw_tokens_1
-  tokens_1
   intrusiverefcntptr_1
+  liveness_analysis
+  llvm_1
+  #llvm_clang_usage # NOTE: This directory is not normally built.
   node_visitor_1
+  preprocessor
+  raw_tokens_1
+  scandeps_1
+  template_1
+  tokens_1
+  vfs_2
 )
 
 list(APPEND installable_project_dirs
+)
+
+list(APPEND undemoable_project_dirs
 )
 
 message("cmake_args ${cmake_args}")
@@ -109,6 +123,13 @@ foreach(dir IN LISTS project_dirs)
 		set(has_install_target TRUE)
 	else()
 		set(has_install_target FALSE)
+	endif()
+
+	list(FIND undemoable_project_dirs ${dir} find_index)
+	if(find_index EQUAL -1)
+		set(has_demo_target TRUE)
+	else()
+		set(has_demo_target FALSE)
 	endif()
 
 	if(has_install_target)
@@ -143,7 +164,9 @@ foreach(dir IN LISTS project_dirs)
 	  )
 	add_dependencies(configure ${target}-configure)
 	add_dependencies(build ${target}-build)
-	add_dependencies(demo ${target}-demo)
+	if(has_demo_target)
+		add_dependencies(demo ${target}-demo)
+	endif()
 	if(has_install_target)
 		add_dependencies(install-subprojects ${target}-install)
 	endif()

@@ -88,8 +88,7 @@ std::unique_ptr<clang::ASTUnit> loadAstUnitFromFile(
 	clang::HeaderSearchOptions headerSearchOpts;
 	return clang::ASTUnit::LoadFromASTFile(astFile,
 	  pchContainerOps.getRawReader(), clang::ASTUnit::LoadEverything,
-	  llvm::vfs::getRealFileSystem(), diagOpts, diagEngine, fileSysOpts,
-	  headerSearchOpts, nullptr);
+	  diagOpts, diagEngine, fileSysOpts, headerSearchOpts, nullptr);
 }
 
 int main(int argc, const char** argv) {

@@ -5,6 +5,8 @@
 cmake_source_dir="@CMAKE_SOURCE_DIR@"
 cmake_binary_dir="@CMAKE_BINARY_DIR@"
 
+################################################################################
+
 panic()
 {
 	echo "ERROR: $*"
@@ -25,10 +27,22 @@ print_separator()
 	python -c 'print("*" * 80)'
 }
 
+get_gcc_toolchain_dir()
+{
+	#[ $# -eq 1 ] || return 1
+	#local gcc_program="$1"
+	#local gcc_path="$(type -P "$gcc_program")" || return 1
+	#local gcc_bin_dir="$(dirname "$gcc_path")" || return 1
+	#local gcc_root_dir="$(realpath "$gcc_bin_dir/..")" || return 1
+	#echo "$gcc_root_dir"
+	"$gcc_info" toolchain_dir || return 1
+}
+
 source_dir="$cmake_source_dir"
 build_dir="$cmake_binary_dir"
 data_dir="$source_dir/data"
-get_clang_include_dir="$source_dir/get_clang_include_dir"
+clang_info="$source_dir/clang_info"
+gcc_info="$source_dir/gcc_info"
 
 ################################################################################
 
@@ -61,10 +75,102 @@ if [ "${#source_files[@]}" -eq 0 ]; then
 	source_files+=("/virtual.cpp")
 fi
 
-clang_inc_dir="$("$get_clang_include_dir")" || \
-  panic "cannot get Clang include directory"
+################################################################################
+# Locate the GCC toolchain.
+################################################################################
 
-options+=(-clang-include-dir "$clang_inc_dir")
+gcc_toolchain=
+if [ -z "${CL_GCC_TOOLCHAIN+x}" ]; then
+	gcc_cc="$(type -P gcc)" || gcc_cc=
+	gcc_toolchain="$(get_gcc_toolchain_dir "$gcc_cc")" || gcc_toolchain=
+else
+	gcc_toolchain="$CL_GCC_TOOLCHAIN"
+fi
+if [ "$verbose" -ge 1 ]; then
+	eecho "GCC toolchain directory: $gcc_toolchain"
+fi
+
+################################################################################
+# Locate the Clang resource directory.
+################################################################################
+
+clang_res_dir="$("$clang_info" resource_dir)" || \
+  panic "cannot get Clang resource directory"
+clang_res_inc_dir="$clang_res_dir/include"
+
+################################################################################
+# Select the C++ standard library.
+################################################################################
+
+if [ -n "$gcc_toolchain" ]; then
+	cxxstdlib=libstdcxx
+else
+	cxxstdlib=libcxx
+fi
+
+target="$CL_TARGET"
+
+if [ "$cxxstdlib" = libcxx ]; then
+
+	# The LLVM/Clang compiler.
+	clangxx="$(type -P clang++)" || panic
+	clang_bin_dir="$(dirname "$clangxx")" || panic
+	clang_dir="$clang_bin_dir/.."
+	clang_dir="$(realpath "$clang_dir")" || panic
+
+	sysroot="$CL_SYSROOT"
+	llvm_libs_root="$CL_LLVM_LIBS_ROOT_DIR"
+	llvm_libs_root="$(realpath "$CL_LLVM_LIBS_ROOT_DIR")" || panic
+
+	generic_libcxx_headers_dir="$clang_dir/include/c++/v1"
+	target_libcxx_headers_dir="$clang_dir/include/$target/c++/v1"
+	generic_libc_headers_dir="$sysroot/include"
+	clang_res_inc_dir="$clang_res_dir/include"
+
+	echo "clang directory: $clang_dir"
+	echo "clang resource include directory: $clang_res_inc_dir"
+	echo "llvm_libs_root: $llvm_libs_root"
+	echo "sysroot: $sysroot"
+	echo "target: $target"
+
+	if [ 0 -ne 0 ]; then
+		echo "generic libcxx headers:"
+		ls "$generic_libcxx_headers_dir"
+		echo "target libcxx headers:"
+		ls "$target_libcxx_headers_dir"
+		echo "generic libc headers:"
+		ls "$generic_libc_headers_dir"
+	fi
+
+fi
+
+options+=(-extra-arg="-resource-dir=$clang_res_dir")
+
+# NOTE/FIXME: A better method for selecting the C++ standard library is needed.
+case "$cxxstdlib" in
+
+libstdcxx)
+	options+=(-extra-arg="--gcc-toolchain=$gcc_toolchain")
+	options+=(-extra-arg="-stdlib=libstdc++")
+	#options+=(-extra-arg="-I$clang_res_inc_dir")
+	;;
+
+libcxx)
+	options+=(
+		-extra-arg="--sysroot=$sysroot"
+		-extra-arg="--target=$target"
+		#-extra-arg="-nostdinc"
+		#-extra-arg="-stdlib=libc++"
+		-extra-arg="-I$generic_libcxx_headers_dir"
+		-extra-arg="-I$target_libcxx_headers_dir"
+		-extra-arg="-I$generic_libc_headers_dir"
+	)
+	;;
+
+*)
+	panic;;
+
+esac
 
 for source_file in "${source_files[@]}"; do
 	echo "SOURCE FILE: $source_file"

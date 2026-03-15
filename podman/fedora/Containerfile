@@ -1,45 +1,24 @@
-ARG OS_RELEASE=41
-ARG LLVM_VERSION=20.1.0
+ARG OS_RELEASE=42
+ARG LLVM_VERSION=21.1.0-rc2
 ARG INSTALL_DIR=/opt/sde/packages
+ARG LLVM_NAME=llvm
 
 FROM registry.fedoraproject.org/fedora:$OS_RELEASE
 
+ARG OS_RELEASE
 ARG LLVM_VERSION
 ARG INSTALL_DIR
-ARG LLVM_NAME=llvm
+ARG LLVM_NAME
+
 ARG BUILD_DIR=/var/tmp/build
 
-# Note: Using the --setopt=install_weak_deps=False option for dnf install
-# seems to cause problems.
+RUN \
+mkdir -p $BUILD_DIR $BUILD_DIR/bin $BUILD_DIR/data
+
+COPY ./files/packages-f$OS_RELEASE $BUILD_DIR/data
 
 RUN \
-dnf -y install --nodocs \
-  gcc \
-  gcc-c++ \
-  cmake \
-  make \
-  ninja-build \
-  git \
-  vim \
-  wget \
-  hostname \
-  python3 \
-  python-unversioned-command \
-  jq \
-  bc \
-  which \
-  libasan \
-  liblsan \
-  libtsan \
-  libubsan \
-  zlib-devel \
-  ncurses-devel \
-  libffi-devel \
-  libedit-devel \
-  libxml2-devel \
-  openssl-devel \
-  boost-devel \
-  boost-static
+dnf -y install --nodocs $(cat $BUILD_DIR/data/packages-f$OS_RELEASE)
 
 RUN \
 dnf clean all \
@@ -49,7 +28,7 @@ rm -rf /var/cache/dnf
 RUN \
 mkdir -p $BUILD_DIR $BUILD_DIR/bin
 
-COPY ./install_clang_stub $BUILD_DIR/bin
+COPY --from=common ./bin/install_clang_stub $BUILD_DIR/bin
 
 RUN \
 $BUILD_DIR/bin/install_clang_stub \

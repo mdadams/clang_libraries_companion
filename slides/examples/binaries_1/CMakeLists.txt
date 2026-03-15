@@ -1,0 +1,32 @@
+cmake_minimum_required(VERSION 3.14)
+project(binaries_1 LANGUAGES CXX C)
+
+set(POSITION_INDEPENDENT_CODE TRUE)
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+include(CheckCXXCompilerFlag)
+include(Sanitizers)
+
+#set(CMAKE_VERBOSE_MAKEFILE TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+
+set(CMAKE_CXX_STANDARD 20)
+
+find_package(ClangFoo REQUIRED)
+include(CheckStdFormat)
+import_std_format()
+
+add_executable(getchararray)
+list(APPEND all_targets getchararray)
+target_sources(getchararray PRIVATE getchararray.cpp data.cpp)
+target_link_libraries(getchararray PRIVATE ClangFoo::llvm ClangFoo::clangcpp)
+
+add_executable(printsyminfo)
+list(APPEND all_targets printsyminfo)
+target_sources(printsyminfo PRIVATE printsyminfo.cpp)
+target_link_libraries(printsyminfo PRIVATE ClangFoo::llvm ClangFoo::clangcpp)
+
+configure_file("${CMAKE_SOURCE_DIR}/demo"
+  "${CMAKE_BINARY_DIR}/demo" @ONLY)
+add_custom_target(demo DEPENDS ${all_targets}
+  COMMAND "${CMAKE_BINARY_DIR}/demo")

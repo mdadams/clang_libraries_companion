@@ -4,9 +4,9 @@ This repository contains all of the code examples that are associated
 with the following slide deck:
 
   - Michael D. Adams.
-    *Lecture Slides for the Clang Libraries [LLVM/Clang 21]*.
-    Edition 0.4.0,
-    Aug. 2025.
+    *Lecture Slides for the Clang Libraries (LLVM/Clang 22)*.
+    Edition 0.5.0,
+    Feb. 2026.
 
 ## Obtaining the Slide Deck
 
@@ -50,7 +50,7 @@ The code examples have the following software dependencies:
 
   - CMake
   - Make
-  - version 21 of LLVM/Clang
+  - version 22 of LLVM/Clang
   - GCC (if application programs are to be built with GCC)
   - Boost
   - Python
@@ -126,9 +126,14 @@ working tree of the cloned Git repository.
 
        ./build --defaults
 
+   To specify the number of parallel jobs (used for building), add the
+   `--num-jobs` option.  For example, the following command can be used:
+
+       ./build --defaults --num-jobs 8
+
    If the C++ standard library being used happens to support `std::format`, the
    `--no-fmt` option can be added to the invocation of the build script above
-   (so that the custom version of the fmt library is not used).  That is,
+   (so that the custom version of the fmt library is not used).  For example,
    the following command can be used:
 
        ./build --defaults --no-fmt
@@ -165,7 +170,7 @@ containing `demo`).  For example, to run the demo script for the
 
 ## Podman/Docker Containerized Demonstration Environment
 
-A Dockerfile is provided that can be used to create a Podman/Docker
+A script is provided that can be used to create a Podman/Docker
 container image with all of the necessary software dependencies for
 building and running the code examples in this repository.  Building
 this image is quite time consuming since it requires building LLVM.
@@ -173,7 +178,7 @@ For this reason, a prebuilt version of the Podman/Docker container
 image has been made available via the following repository in the GitHub
 Container Registry:
 
-  - `ghcr.io/mdadams/clang_libs-fedora_42-llvm_21`
+  - `ghcr.io/mdadams/clang_libs-fedora_43-llvm_22`
 
 Instructions are given below on how to use this containerized environment.
 Although these instructions use (rootless) Podman, the `podman` and `docker`
@@ -199,13 +204,13 @@ be an absolute path.
    - Option 1 (Use the prebuilt image).
      To retrieve the prebuilt image, use the following command:
 
-         podman pull ghcr.io/mdadams/clang_libs-fedora_42-llvm_21
+         podman pull ghcr.io/mdadams/clang_libs-fedora_43-llvm_22
 
    - Option 2 (Build the image from scratch).
      To build the image from scratch, use the following command:
 
-         podman build --tag clang_libs-fedora_42-llvm_21 \
-           -f $TOP_DIR/podman/Dockerfile-fedora_42-llvm_21 $TOP_DIR/podman
+         $TOP_DIR/bin/make_image -N fedora -R 43 -L 22.1.0 \
+           -i clang_libs-fedora_43-llvm_22
 
      Note that building the container image from scratch involves
      building LLVM, which takes a considerable amount of time.
@@ -215,7 +220,7 @@ be an absolute path.
 
        podman run -i -t --rm -v $TOP_DIR:$TOP_DIR:rw -w $TOP_DIR \
          --cap-add=SYS_PTRACE --security-opt label=disable \
-         clang_libs-fedora_42-llvm_21 /bin/bash
+         clang_libs-fedora_43-llvm_22 /bin/bash
 
    Note that the `--cap-add` and `--security-opt` options may not be
    needed.  The `SYS_PTRACE` capability is typically needed in order
@@ -229,9 +234,6 @@ be an absolute path.
    command from the Bash shell running in the container:
 
        ./build --defaults
-
-   If you want to control the number of parallel jobs (used for
-   building), you can add the `--num-jobs` option.
 
 ## Remarks on the Use of Address Sanitizer (ASan)
 

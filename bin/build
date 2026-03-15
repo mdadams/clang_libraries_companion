@@ -231,7 +231,7 @@ usage()
 	    This directory defaults to \$root_dir/install, where \$root_dir is the
 	    top-level directory of the source tree.
 
-	--dev
+	--dev-defaults
 	--extras
 	--dir \$path (alias -s)
 	    These options are for internal use only and only mentioned for
@@ -276,7 +276,7 @@ components=(
 software_dir="$(get_component_dir "$root_dir" "$build_root_dir" "$context" \
   software source)" || \
   panic "cannot get software directory"
-get_clang_include_dir="$self_dir/get_clang_include_dir"
+clang_info="$self_dir/clang_info"
 
 build_root_dir=
 build_type=Debug
@@ -299,6 +299,11 @@ enable_asan_leak_detect=
 enable_ubsan_halt_on_error=
 num_jobs=
 clangfoo_comps=
+cmake_toolchain_file=
+##########
+#cmake_generator=Ninja
+cmake_generator=
+##########
 
 install_dir="$root_dir/install"
 
@@ -320,29 +325,42 @@ while [ $# -gt 0 ]; do
 		do_clean=1
 		do_build=1
 		do_demo=0
-		enable_asan=1
-		enable_ubsan=1
-		build_type=Debug
+		enable_asan=0
+		enable_ubsan=0
+		build_type=Release
 		verbose=0
 		enable_extras=0
 		verbose_makefile=0
 		use_fmtlib=1
-		enable_asan_user_poisoning=0
-		enable_asan_leak_detect=0
+		#enable_asan_user_poisoning=0
+		#enable_asan_leak_detect=0
 		;;
-	--dev)
+	--dev-defaults)
 		shift 1
-		do_clean=1
+		do_clean=0
 		do_build=1
-		do_demo=1
+		do_demo=0
 		enable_asan=1
 		enable_ubsan=1
 		build_type=Debug
 		verbose=1
 		enable_extras=1
 		verbose_makefile=1
-		use_fmtlib=1
+		use_fmtlib=0
 		;;
+	#--dev)
+	#	shift 1
+	#	do_clean=1
+	#	do_build=1
+	#	do_demo=1
+	#	enable_asan=1
+	#	enable_ubsan=1
+	#	build_type=Debug
+	#	verbose=1
+	#	enable_extras=1
+	#	verbose_makefile=1
+	#	use_fmtlib=1
+	#	;;
 	--no-clean)
 		shift 1
 		do_clean=0
@@ -453,6 +471,18 @@ while [ $# -gt 0 ]; do
 		build_root_dir="$1"
 		shift 1
 		;;
+	--cmake-generator)
+		shift 1
+		[ $# -gt 0 ] || usage "missing argument"
+		cmake_generator="$1"
+		shift 1
+		;;
+	--cmake-toolchain-file)
+		shift 1
+		[ $# -gt 0 ] || usage "missing argument"
+		cmake_toolchain_file="$1"
+		shift 1
+		;;
 	-0)
 		shift 1
 		stop_after_fmtlib=1
@@ -556,11 +586,17 @@ run_command llvm-config --libdir
 run_command llvm-config --link-shared
 run_command llvm-config --libs all
 
-run_command "$get_clang_include_dir" -v
+run_command "$clang_info"
 
 base_cmake_configure_options=(
 	-DCMAKE_INSTALL_PREFIX="$install_dir"
 )
+if [ -n "$cmake_generator" ]; then
+	base_cmake_configure_options+=(-G "$cmake_generator")
+fi
+if [ -n "$cmake_toolchain_file" ]; then
+	base_cmake_configure_options+=(-DCMAKE_TOOLCHAIN_FILE=$cmake_toolchain_file)
+fi
 if [ -n "$build_type" ]; then
 	base_cmake_configure_options+=(-DCMAKE_BUILD_TYPE=Debug)
 fi
@@ -572,6 +608,9 @@ if [ -n "$enable_asan" ]; then
 fi
 if [ -n "$enable_ubsan" ]; then
 	base_cmake_configure_options+=(-DENABLE_UBSAN="$enable_ubsan")
+fi
+if [ -n "$Boost_DIR" ]; then
+	base_cmake_configure_options+=(-DBoost_DIR="$Boost_DIR")
 fi
 
 base_cmake_env=()

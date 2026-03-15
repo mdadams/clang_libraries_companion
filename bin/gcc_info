@@ -47,6 +47,7 @@ find_python()
 realpath()
 {
 	local path="$1"
+	#eecho "realpath: $path"
 	"$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' \
 	  "$path"
 }
@@ -161,6 +162,7 @@ done
 version=
 major_version=
 program_dir=
+toolchain_dir=
 
 if [ -n "$program_path" ]; then
 
@@ -209,6 +211,10 @@ if [ -n "$program_path" ]; then
 
 fi
 
+if [ -n "$program_dir" ]; then
+	toolchain_dir="$(realpath "$program_dir/..")" || toolchain_dir=
+fi
+
 for key in "${keys[@]}"; do
 
 	case "$key" in
@@ -236,6 +242,11 @@ for key in "${keys[@]}"; do
 		[ -n "$version" ] || \
 		  panic "could not determine value for key $key"
 		echo "$include_dir"
+		;;
+	toolchain_dir)
+		[ -n "$toolchain_dir" ] || \
+		  panic "could not determine value for key $key"
+		echo "$toolchain_dir"
 		;;
 	*)
 		panic "invalid key $key"

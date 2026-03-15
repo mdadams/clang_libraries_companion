@@ -1,0 +1,63 @@
+ARG OS_RELEASE=24.04
+ARG LLVM_VERSION=21.1.0-rc2
+ARG INSTALL_DIR=/opt/sde/packages
+ARG LLVM_NAME=llvm
+
+FROM ubuntu:$OS_RELEASE
+
+ARG OS_RELEASE
+ARG LLVM_VERSION
+ARG INSTALL_DIR
+ARG LLVM_NAME
+
+ARG BUILD_DIR=/var/tmp/build
+
+SHELL ["/bin/bash", "-c"]
+
+RUN \
+mkdir -p $BUILD_DIR $BUILD_DIR/bin $BUILD_DIR/data
+
+COPY ./files/packages-${OS_RELEASE//./_} $BUILD_DIR/data
+
+RUN \
+apt-get update
+
+RUN \
+apt-get install -y $(cat "$BUILD_DIR/data/packages-${OS_RELEASE//./_}")
+
+RUN \
+apt-get clean \
+&& \
+rm -rf /var/lib/apt/lists/* \
+&& \
+rm -rf /var/cache/apt
+
+RUN \
+mkdir -p $BUILD_DIR $BUILD_DIR/bin
+
+COPY --from=common ./bin/install_clang_stub $BUILD_DIR/bin
+
+RUN \
+$BUILD_DIR/bin/install_clang_stub \
+  -V $LLVM_VERSION \
+  -I $INSTALL_DIR/$LLVM_NAME-$LLVM_VERSION \
+  -B $BUILD_DIR/tmp \
+  -m web
+
+RUN \
+ln -s $LLVM_NAME-$LLVM_VERSION $INSTALL_DIR/$LLVM_NAME
+
+RUN \
+rm -rf $BUILD_DIR
+
+ENV \
+GCC_CC_PATH=/usr/bin/gcc \
+GCC_CXX_PATH=/usr/bin/g++ \
+CLANG_CC_PATH=$INSTALL_DIR/$LLVM_NAME/bin/clang \
+CLANG_CXX_PATH=$INSTALL_DIR/$LLVM_NAME/bin/clang++
+
+ENV \
+PATH="$PATH:$INSTALL_DIR/$LLVM_NAME/bin" \
+CMAKE_PREFIX_PATH=$INSTALL_DIR/$LLVM_NAME
+
+CMD /bin/bash

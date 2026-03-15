@@ -21,15 +21,26 @@ panic()
 	exit 1
 }
 
-usage()
+get_gcc_toolchain_dir()
 {
-	echo "BAD USAGE: $*" 1>&2
-	exit 2
+	#[ $# -eq 1 ] || return 1
+	#local gcc_program="$1"
+	#local gcc_path="$(type -P "$gcc_program")" || return 1
+	#local gcc_bin_dir="$(dirname "$gcc_path")" || return 1
+	#local gcc_root_dir="$(realpath "$gcc_bin_dir/..")" || return 1
+	#echo "$gcc_root_dir"
+	"$gcc_info" toolchain_dir || return 1
 }
 
 ################################################################################
 # Process command-line arguments.
 ################################################################################
+
+usage()
+{
+	echo "BAD USAGE: $*" 1>&2
+	exit 2
+}
 
 verbose="${CL_DEBUG_LEVEL:-0}"
 #verbose=1
@@ -43,31 +54,81 @@ shift 1
 args=("$@")
 
 ################################################################################
-# Determine key pathnames.
+# Determine some key paths.
 ################################################################################
 
-self_program="$(realpath "$0")" || \
+self_path="$(realpath "$0")" || \
   panic "dirname failed"
-self_dir="$(dirname "$self_program")" || \
+self_dir="$(dirname "$self_path")" || \
   panic "realpath failed"
-get_clang_inc_dir="$self_dir/get_clang_include_dir"
+
+clang_info="$self_dir/clang_info"
+gcc_info="$self_dir/gcc_info"
 
 ################################################################################
-# Find the Clang built-in include directory.
+# Locate the GCC toolchain.
+################################################################################
+
+gcc_toolchain=
+if [ -z "${CL_GCC_TOOLCHAIN+x}" ]; then
+	gcc_cc="$(type -P gcc)" || gcc_cc=
+	gcc_toolchain="$(get_gcc_toolchain_dir "$gcc_cc")" || gcc_toolchain=
+else
+	gcc_toolchain="$CL_GCC_TOOLCHAIN"
+fi
+if [ "$verbose" -ge 1 ]; then
+	eecho "GCC toolchain directory: $gcc_toolchain"
+fi
+
+################################################################################
+# Find the Clang resource directory.
 ################################################################################
 
 if [ "$verbose" -ge 1 ]; then
-	eecho "RUNNING: $get_clang_inc_dir"
+	eecho "RUNNING: $clang_info resource_dir"
 fi
-clang_inc_dir="$("$get_clang_inc_dir")" || \
-  panic "cannot determine Clang built-in include directory"
+clang_res_dir="$("$clang_info" resource_dir)" || \
+  panic "cannot determine Clang resource directory"
+clang_inc_dir="$clang_res_dir/include"
+
+################################################################################
+# Select the C++ standard library.
+################################################################################
+
+clang_cc="$(type -P clang)" || clang_cc=
+
+if [ -n "$gcc_toolchain" ]; then
+	cxxstdlib=libstdcxx
+else
+	cxxstdlib=libcxx
+fi
+
+if [ -z "$cxxstdlib" ]; then
+	panic "cannot determine C++ standard library"
+fi
 
 ################################################################################
 # Run the specified program with an extra option for the Clang built-in
 # include directory.
 ################################################################################
 
-command=("$program" "-extra-arg=-I$clang_inc_dir" "${args[@]}")
+extra_args=()
+
+extra_args+=("-extra-arg=-resource-dir=$clang_res_dir")
+if [ -n "$gcc_toolchain" ]; then
+	extra_args+=("-extra-arg=--gcc-toolchain=$gcc_toolchain")
+fi
+
+case "$cxxstdlib" in
+libstdcxx)
+	extra_args+=("-extra-arg=-stdlib=libstdc++")
+	;;
+libcxx)
+	extra_args+=("-extra-arg=-stdlib=libc++")
+	;;
+esac
+
+command=("$program" "${extra_args[@]}" "${args[@]}")
 if [ "$verbose" -ge 1 ]; then
 	eecho "RUNNING: ${command[*]}"
 fi

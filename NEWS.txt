@@ -4,6 +4,26 @@ NEWS
 This document highlights some of the more significant changes from one
 release of the lecture slides (and companion Git repository) to the next.
 
+Edition 0.5.0 (2026-02-17)
+==========================
+
+Some of the more significant changes in going from Edition 0.4.0 to Edition
+0.5.0 are as follows:
+
+- The slides and code examples have been updated to be based on
+  LLVM/Clang 22.  Some of the code examples may work with earlier
+  versions of LLVM/Clang, but this is not officially supported.  The API
+  differences between different versions of LLVM/Clang are handled by
+  conditional compilation in the case of the non-slide code examples and
+  by using multiple separate source files in the case of code examples
+  that appear on slides (so as to avoid clutter).
+
+- Added some slides and code examples for:
+  - dependency scanning
+  - LLVM object library
+
+- Added improved coverage of llvm::Error and llvm::Expected.
+
 Edition 0.4.0 (2025-08-15)
 ==========================
 

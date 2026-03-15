@@ -10,7 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
 set(CMAKE_CXX_STANDARD 20)
 
-find_package(Boost REQUIRED COMPONENTS filesystem)
+#find_package(Boost REQUIRED COMPONENTS filesystem)
 find_package(ClangFoo REQUIRED)
 include(CheckStdFormat)
 import_std_format()
@@ -18,8 +18,9 @@ import_std_format()
 add_executable(dump_cfg)
 list(APPEND all_targets dump_cfg)
 target_sources(dump_cfg PRIVATE main.cpp analyze.cpp)
-target_link_libraries(dump_cfg PRIVATE ClangFoo::llvm ClangFoo::clangcpp
-  Boost::filesystem)
+#target_link_libraries(dump_cfg PRIVATE ClangFoo::llvm ClangFoo::clangcpp
+#  Boost::filesystem)
+target_link_libraries(dump_cfg PRIVATE ClangFoo::llvm ClangFoo::clangcpp)
 
 add_library(dummy EXCLUDE_FROM_ALL
   data/example_1.cpp

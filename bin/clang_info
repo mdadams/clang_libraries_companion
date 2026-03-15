@@ -1,386 +1,235 @@
-#! /usr/bin/env bash
+#! /usr/bin/env python
+
+# Copyright (c) 2025 Michael D. Adams
 
 ################################################################################
-# Functions
-################################################################################
 
-eecho()
-{
-	echo "$@" 1>&2
-}
-
-ecat()
-{
-	cat 1>&2
-}
-
-panic()
-{
-	eecho "ERROR: $*"
-	exit 1
-}
-
-log()
-{
-	eecho "$(basename "$0"): $*"
-}
-
-find_python()
-{
-	local name=
-	local python_path=
-	for name in python python3 python2; do
-		local path=$(type -P "$name") || path=
-		if [ -n "$path" ]; then
-			if [ -x "$path" ]; then
-				python_path="$path"
-				break
-			fi
-		fi
-	done
-	if [ -z "$python_path" ]; then
-		return 1
-	fi
-	echo "$python_path"
-}
-
-realpath()
-{
-	local path="$1"
-	"$python_path" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' \
-	  "$path"
-}
-
-is_abs_path()
-{
-	[ $# -eq 1 ] || return 1
-	local path="$1"
-	"$python_path" \
-	  -c 'import os, sys; print("{:d}".format(os.path.isabs(sys.argv[1])))' \
-	  "$path"
-}
-
-get_clang_version()
-{
-	local program="${1:-clang++}"
-	"$program" --version | awk '
-		(NR==1){
-			for (i = 1; i <= NF; ++i) {
-				if (tolower($i) == "version") {
-					++i;
-					print $i;
-					break;
-				}
-			}
-		}
-	'
-}
-
-is_ccache()
-{
-	[ $# -eq 1 ] || return 1
-	local program_path="$1"
-	local program_canonpath="$(realpath "$program_path")" || return 1
-	local target_basename="$(basename "$program_canonpath")" || return 1
-	local dir="$(dirname "$program_path")" || return 1
-	local result=0
-	case "$target_basename" in
-	*ccache*)
-		result=1;;
-	esac
-	case "$dir" in
-	*ccache*)
-		result=1;;
-	esac
-	echo "$result"
-}
+import glob
+import json
+import os
+from pathlib import Path
+import re
+from shlex import quote
+import subprocess
+import sys
+from typing import Optional
 
 ################################################################################
-# Early Initialization
-################################################################################
 
-# NOTE: The python program must be located before is_abs_path or realpath
-# is used.
-python_path="$(find_python)" || panic "cannot find python"
+debug_level=0
 
-################################################################################
-# Command-Line Processing
-################################################################################
+def eprint(*args, **kwargs):
+    print(*args, file = sys.stderr, **kwargs)
 
-usage()
-{
-	echo "BAD USAGE: $*"
-	exit 2
-}
+def quote_command_line(args):
+    return ' '.join(quote(arg) for arg in args);
 
-self_canonpath="$(realpath "$0")" || \
-  panic "cannot get real path of program"
-self_dir="$(dirname "$self_canonpath")" || \
-  panic "cannot get directory of program"
-
-default_names=(clang++)
-
-verbose=0
-names=()
-path_spec=
-program_path=
-
-command_line_args=("$@")
-
-while getopts :vn:p:P: option; do
-	case "$option" in
-	v)
-		verbose=$((verbose + 1));;
-	n)
-		names+=("$OPTARG");;
-	p)
-		path_spec="$OPTARG";;
-	P)
-		program_path="$OPTARG";;
-	\?)
-		usage "invalid option $option";;
-	esac
-done
-shift $((OPTIND - 1))
-
-if [ ${#names[@]} -eq 0 ]; then
-	names=("${default_names[@]}")
-fi
-if [ -z "$path_spec" ]; then
-	path_spec="$PATH"
-fi
-if [ -n "$program_path" ]; then
-	abs=$(is_abs_path "$program_path") || \
-	  panic "is_abs_path failed"
-	if [ "$abs" -eq 0 ]; then
-		usage "program path is not absolute"
-	fi
-fi
-
-keys=("$@")
+def run_program(args):
+    try:
+        result = subprocess.run(args, stdout=subprocess.PIPE,
+          stderr=subprocess.PIPE, text=True, check=True)
+        if result.returncode == 0:
+            return {"status": result.returncode, "stdout": result.stdout}
+        return {"status": result.returncode}
+    except subprocess.CalledProcessError as e:
+        return {"status": -1, "exception": e}
 
 ################################################################################
-# Determine Clang Information
+
+def is_ccache(path: Path) -> bool:
+    # Check if any component of the parent path contains "ccache".
+    for part in path.parent.parts:
+        if "ccache" in part.lower():
+            return True
+    # Check if the resolved canonical path's basename contains "ccache".
+    try:
+        canonical = path.resolve()
+        if 'ccache' in canonical.name.lower():
+            return True
+    except OSError:
+        pass
+    return False
+
+
+def is_clang(path: Path, regexes: list[str]) -> bool:
+    try:
+        canonical = path.resolve()
+        for pattern in [re.compile(r) for r in regexes]:
+            if pattern.fullmatch(canonical.name):
+                return True
+    except OSError:
+        pass
+    return False
+
+def find_program(regexes: list[str], search_path: list[str],
+  first_match: bool = True,) -> list[str]:
+    compiled = [re.compile(r) for r in regexes]
+    results = []
+    seen = set()
+    for pattern in compiled:
+        for directory in search_path:
+            dir_path = Path(directory)
+            if not dir_path.is_dir():
+                continue
+            try:
+                entries = sorted(dir_path.iterdir())
+            except PermissionError:
+                continue
+            for entry in entries:
+                if not entry.is_file() and not entry.is_symlink():
+                    continue
+                if not os.access(entry, os.X_OK):
+                    continue
+                if not pattern.fullmatch(entry.name):
+                    continue
+                if is_ccache(entry):
+                    continue
+                resolved = str(entry.resolve())
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                results.append(str(entry))
+                if first_match:
+                    return results
+    return results
+
+def find_compiler(name):
+    if name == "clang++":
+        env_var = "CXX"
+        prog_name = "clang++"
+    else:
+        env_var = "CC"
+        prog_name = "clang"
+    regexes = [
+        re.escape(prog_name),
+        re.escape(prog_name) + r"(-\d+)?",
+    ]
+    prog_path = os.environ.get(env_var)
+    if prog_path is not None:
+        prog_pathobj = Path(prog_path)
+        if (prog_pathobj.is_absolute() and prog_pathobj.exists() and
+          os.access(prog_pathobj, os.X_OK) and is_clang(prog_pathobj, regexes)):
+            return prog_path
+    search_path = os.environ.get("PATH", "").split(os.pathsep)
+    matches = find_program(regexes, search_path, first_match=True)
+    if not matches:
+        return None
+    return matches[0]
+
 ################################################################################
 
-sde_top_dir="$SDE_TOP_DIR"
-if [ -n "$sde_top_dir" ]; then
-	sde_top_dir="$(realpath "$sde_top_dir")" || \
-	  panic "realpath failed"
-fi
+def parse_clang_version_output(output: str) -> dict:
+    result = {}
+    lines = output.strip().splitlines()
+    if debug_level >= 1:
+        eprint(f"VERSION OUTPUT:\n{lines}")
+    if lines:
+        m = re.match(r'clang version\s+(\S+)', lines[0])
+        if m:
+            version = m.group(1)
+            result['version'] = version
+            vm = re.match(r'(\d+)\.(\d+)\.(\d+)(.*)', version)
+            if vm:
+                result['major_version'] = int(vm.group(1))
+                result['minor_version'] = int(vm.group(2))
+                result['patch_version'] = int(vm.group(3))
+                pre = vm.group(4).lstrip('-')
+                if pre:
+                    result['pre_release'] = pre
+        for line in lines[1:]:
+            if ':' in line:
+                key, _, value = line.partition(':')
+                key = re.sub(r'\s+', '_', key.strip()).lower()
+                result[key] = value.strip()
+    return result
 
-if [ "$verbose" -ge 3 ]; then
-	log "command line: $0 ${command_line_args[*]}"
-fi
-if [ "$verbose" -ge 2 ]; then
-	log "path: $path_spec"
-fi
+def run_clang_version(clang_program_path):
+    args = [clang_program_path, "--version"]
+    if debug_level >= 1:
+        eprint(f"running: {quote_command_line(args)}")
+    run_result = run_program(args)
+    if run_result["status"] != 0:
+        return None
+    parsed = parse_clang_version_output(run_result["stdout"])
+    info = {
+        "version_name": parsed["version"],
+        "version_major": parsed["major_version"],
+        "version_minor": parsed["minor_version"],
+        "version_patch": parsed["patch_version"],
+        "target": parsed["target"],
+        "bin_dir": parsed["installeddir"],
+        #"build_config": parsed["build_config"] if "build_config" in parsed else "",
+    }
+    return info
 
-# If the path for the program is given, ensure that it is valid.
-if [ -n "$program_path" ]; then
+def run_clang_print_resource_dir(clang_program_path):
+    if debug_level >= 1:
+        eprint(f"running: {clang_program_path} -print-resource-dir")
+    args = [clang_program_path, "-print-resource-dir"]
+    run_result = run_program(args)
+    if run_result["status"] != 0:
+        return None
+    resource_dir = run_result["stdout"].splitlines()[0]
+    return resource_dir
 
-	new_program_path="$program_path"
-	new_program_canonpath=
+################################################################################
 
-	program_path=
-	program_canonpath=
+def main():
 
-	dir="$(dirname "$new_program_path")" || \
-	  panic "cannot get dirname"
+    global debug_level
+    keys = sys.argv[1:]
+    json_format = (len(keys) == 0)
+    debug = os.environ.get("CL_CLANG_INFO_DEBUG")
+    if debug is not None:
+        debug_level = 1
 
-	ccache="$(is_ccache "$dir")" || \
-	  panic "ccache check failed"
-	if [ "$verbose" -ge 3 ]; then
-		eecho "ccache: $ccache"
-	fi
+    resource_dir = os.environ.get("CL_CLANG_RESOURCE_DIR")
+    if resource_dir is not None:
+        resource_dir_pathobj = Path(resource_dir)
+        if not (resource_dir_pathobj.exists() and
+          resource_dir_pathobj.is_dir()):
+            resource_dir = None
+    if resource_dir is None:
+        override = False
+        clangxx_prog_path = find_compiler("clang++")
+        clang_prog_path = find_compiler("clang")
+        install_dir = str(Path(clangxx_prog_path).parent.parent)
+        version_info = run_clang_version(clangxx_prog_path)
+        resource_dir = run_clang_print_resource_dir(clangxx_prog_path)
+    else:
+        override = True
+        install_dir = str(Path(resource_dir).parent.parent.parent)
+        version_info = None
+        clangxx_prog_path = None
+        clang_prog_path = None
+        major_version = None
+    resource_include_dir = str(Path(resource_dir) / "include")
+    info = {
+        "install_dir": install_dir,
+        "resource_dir": resource_dir,
+        "resource_include_dir": resource_include_dir,
+    }
+    if not override:
+        info.update({
+            **version_info,
+            "clangxx_path": clangxx_prog_path,
+            "clang_path": clang_prog_path,
+        })
+    else:
+        if major_version is not None:
+            info["major_version"] = major_version
+    aliases = {
+        "include_dir": "resource_include_dir",
+    }
+    if json_format:
+        print(json.dumps(info, indent=2))
+    else:
+        for key in keys:
+            if key in aliases:
+                key = aliases[key]
+            print(info[key] if key in info else "")
 
-	if [ "$ccache" -eq 0 -a -x "$new_program_path" ]; then
-		new_program_canonpath="$(realpath "$new_program_path")" || \
-		  new_program_canonpath=
-		if [ -n "$new_program_canonpath" ]; then
-			program_path="$new_program_path"
-			program_canonpath="$new_program_canonpath"
-		fi
-	fi
+################################################################################
 
-fi
-
-if [ "$verbose" -ge 3 ]; then
-	eecho "program path: $program_path"
-	eecho "program canonical path: $program_canonpath"
-fi
-
-# If no path for the program is known, attempt to determine it.
-if [ -z "$program_path" ]; then
-
-	IFS=":" read -a path <<< "$path_spec" || panic "cannot get search path"
-	program_path=
-	program_canonpath=
-	for name in "${names[@]}"; do
-	#for dir in "${path[@]}"; do
-
-		#for name in "${names[@]}"; do
-		for dir in "${path[@]}"; do
-
-			# Skip empty strings resulting from empty entries in search path.
-			if [ -z "$dir" ]; then
-				continue
-			fi
-			if [ "$verbose" -ge 3 ]; then
-				log "checking for directory $dir"
-			fi
-
-			ccache="$(is_ccache "$dir")" || \
-			  panic "ccache check failed"
-			if [ "$ccache" -ne 0 ]; then
-				if [ "$verbose" -ge 2 ]; then
-					log "skipping ccache directory $dir"
-				fi
-				continue
-			fi
-
-			if [ -n "$sde_top_dir" ]; then
-				path="$(realpath "$dir")" || panic "realpath failed"
-				if [ "$path" == "$sde_top_dir/bin" ]; then
-					if [ "$verbose" -ge 2 ]; then
-						log "skipping SDE directory $dir"
-					fi
-					continue
-				fi
-			fi
-
-			new_program_path="$dir/$name"
-			if [ "$verbose" -ge 3 ]; then
-				log "checking for file $new_program_path"
-			fi
-			if [ -e "$new_program_path" ]; then
-				if [ "$verbose" -ge 3 ]; then
-					if [ -h "$new_program_path" ]; then
-						log "file is symlink: $new_program_path [$(realpath "$new_program_path")]"
-					fi
-					if [ ! -x "$new_program_path" ]; then
-						log "file is not executable: $new_program_path"
-					fi
-				fi
-				if [ -x "$new_program_path" ]; then
-					new_program_canonpath="$(realpath "$new_program_path")" || \
-					  new_program_canonpath=
-					# Only break if the canonical path can be resolved.
-					if [ -n "$new_program_canonpath" ]; then
-						program_path="$new_program_path"
-						program_canonpath="$new_program_canonpath"
-						break 2
-					else
-						if [ "$verbose" -ge 3 ]; then
-							log "cannot resolve path $new_program_path"
-						fi
-					fi
-				fi
-			fi
-		#done
-		done
-
-	#done
-	done
-
-fi
-
-version=
-major_version=
-program_dir=
-include_dir=
-
-if [ -n "$program_path" ]; then
-
-	version="$(get_clang_version "$program_path")" || \
-	  panic "cannot get clang version"
-	major_version="${version%%.*}"
-
-	#program_dir="$(dirname "$program_path")" || panic "dirname failed"
-	#program_dir="$(realpath "$program_dir")" || program_dir=
-
-	program_dir="$(dirname "$program_canonpath")" || panic "dirname failed"
-	#program_dir="$(realpath "$program_dir")" || program_dir=
-
-	if [ -n "$program_dir" ]; then
-		# Note: The order of the following list of directories is important.
-		# Look for the directory names based on $clang_version before
-		# the ones based on $clang_major_version.
-		dir_list=(
-			"$program_dir/../lib/clang/$version/include"
-			"$program_dir/../lib64/clang/$version/include"
-			"$program_dir/../lib/clang/$major_version/include"
-			"$program_dir/../lib64/clang/$major_version/include"
-			# The following are for Ubuntu but may not be needed:
-			"/usr/include/clang/$version/include"
-			"/usr/include/clang/$major_version/include"
-			# The following are for MacOS and Brew:
-			"/usr/local/opt/llvm@$major_version/lib/clang/$version/include"
-			"/usr/local/opt/llvm@$major_version/lib/clang/$major_version/include"
-		)
-		for dir in "${dir_list[@]}"; do
-			if [ "$verbose" -ge 2 ]; then
-				log "checking for existence of directory $dir"
-			fi
-			if [ -d "$dir" ]; then
-				new_include_dir="$dir"
-				if [ "$verbose" -ge 3 ]; then
-					log "found directory $dir"
-				fi
-				include_dir="$new_include_dir"
-				break
-			fi
-		done
-		if [ -n "$include_dir" ]; then
-			include_dir="$(realpath "$include_dir")"
-			if [ "$verbose" -ge 3 ]; then
-				log "include directory after canonicalization $include_dir"
-			fi
-		fi
-	fi
-
-fi
-
-for key in "${keys[@]}"; do
-
-	case "$key" in
-	program_path)
-		[ -n "$program_path" ] || \
-		  panic "could not determine value for key $key"
-		echo "$program_path"
-		;;
-	program_dir)
-		[ -n "$program_dir" ] || \
-		  panic "could not determine value for key $key"
-		echo "$program_dir"
-		;;
-	version)
-		[ -n "$version" ] || \
-		  panic "could not determine value for key $key"
-		echo "$version"
-		;;
-	major_version)
-		[ -n "$major_version" ] || \
-		  panic "could not determine value for key $key"
-		echo "$major_version"
-		;;
-	include_dir)
-		[ -n "$include_dir" ] || \
-		  panic "could not determine value for key $key"
-		echo "$include_dir"
-		;;
-	*)
-		panic "invalid key $key"
-	esac
-
-done
-
-if [ "$verbose" -ge 1 ]; then
-	ecat <<- EOF
-	program path: $program_path
-	program dir: $program_dir
-	version: $version
-	major version: $major_version
-	include dir: $include_dir
-	EOF
-fi
+if __name__ == "__main__":
+    sys.exit(main())
